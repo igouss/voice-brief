@@ -35,9 +35,13 @@ The validator cannot judge whether a question proposes an answer; that belongs t
 
 ## Checks
 
-- `cargo test`: 23 tests covering zero, one and many claims and spans, and one test per
-  rejection. Each test is straight-line.
+- `cargo test`: 24 tests covering zero, one and many claims and spans, and one test per
+  rejection, including a claim id reused across two fields. Each test is straight-line.
 - `cargo mutants --file src/lib.rs` (2026-10-25): 22 mutants, 17 caught, 5 unviable, 0 missed.
+  With every test but one removed, 17 were missed, so this check can fail. It is coarse: it
+  replaces whole function bodies and a few `!` operators, and makes no mutant inside the rejection
+  branches. Removing the span-rejection or blank-question tests still left 0 missed. Each
+  rejection rule is evidenced by its own test, not by the mutants.
 - `cargo clippy --all-targets` is clean, with `wildcard_enum_match_arm` denied.
 
 ## Model calls

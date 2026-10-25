@@ -180,3 +180,10 @@ fn format_table_is_none_without_the_table() {
 fn render_puts_the_definitions_in_the_template() {
     assert_eq!(render("defs:\n{{definitions}}\nend", "TABLE"), "defs:\nTABLE\nend");
 }
+
+#[test]
+fn rejects_a_claim_id_used_in_two_fields() {
+    let reply: String = reply_with("force", &format!("{{\"claims\": [{}]}}", said("c1", &["the sync module"])))
+        .replacen(&format!("\"preserves\": {ASKED}"), &format!("\"preserves\": {{\"claims\": [{}]}}", said("c1", &["the desktop build breaks"])), 1);
+    assert_eq!(violations(&reply), vec![Violation::DuplicateClaimId("c1".into())]);
+}
