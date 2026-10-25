@@ -76,3 +76,27 @@ Only prompts dictated with Claude Code's `/voice` go into the idea; typed prompt
 - The prototype drains the inbox before each screen, recording a `TakeRecorded` with
   `source: claude-code-voice`.
 - Seen live on 2026-10-25: a typed prompt was classified "typed"; a dictated one was "dictated", and the logged character count (95) matched the prompt. A dictation that you then edit by keyboard still counts as dictated.
+
+## Voice audio from Claude Code
+
+Claude Code keeps no audio, and its stream-URL override (`VOICE_STREAM_BASE_URL`) is compiled
+out. `proto/vb-claude.sh` starts `mitmdump` on 127.0.0.1:8899 if it isn't already running, then
+runs `claude` with `DEBUG=1`, `HTTPS_PROXY` and the mitmproxy CA.
+
+- Only `api.anthropic.com` is decrypted.
+- `proto/vb_mitm.py` saves only the `voice_stream` WebSocket. Each stream gets a WAV of the
+  client's binary frames (16 kHz mono linear16), a JSON file with the server's transcript
+  messages, and a line in `~/tmp/vb-proto-audio/index.jsonl`. Nothing else is written.
+- The hook matches each recording span in the debug log to a captured stream. It counts a
+  recording as exact only when the captured bytes equal the sum of the "Sending audio chunk"
+  sizes in the log.
+- On 12 dictations, the bytes sent were 0.92 to 0.99 of the span between "Starting recording
+  session" and "Recording stopped".
+- Checked:
+  - `claude -p` works through the proxy;
+  - the hook handled the exact, mismatch, missing-capture and typed cases on synthetic logs.
+- Seen live on 2026-10-25: one prompt made of two dictations went through the proxy. Both streams
+  were captured exactly: 241,604 bytes in 172 chunks, and 509,146 bytes in 368 chunks, equal to
+  the debug log's sums. Running voxtype on the saved WAVs gave the spoken words back.
+- While `vb-claude.sh` is in use, the proxy decrypts all of that session's traffic with
+  Anthropic, including the OAuth token. It writes none of it to disk.

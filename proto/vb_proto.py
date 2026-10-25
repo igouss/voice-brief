@@ -107,8 +107,10 @@ def drain_inbox():
     for entry in entries:
         tid = f"t{len(takes) + 1}"
         takes[tid] = entry["text"]
+        audio = entry.get("audio") or {}
+        wavs = [x["wav"] for x in audio.get("segments", []) if "wav" in x]
         ev("TakeRecorded", take=tid, source=entry["source"], session=entry.get("session"), at=entry["at"],
-           text=entry["text"])
+           text=entry["text"], wavs=wavs, audio_ok=audio.get("ok"), audio=audio)
         print(f"  {tid} from {entry['source']}: {entry['text'][:100]!r}")
 
 
@@ -214,7 +216,7 @@ def show():
     print("\n--- thread ---")
     for e in thread[-12:]:
         print("  " + json.dumps(e, ensure_ascii=False))
-    print("\n[r]ecord  [f]ile wav  [p]lace  [a]ccept  [x]reject  [t]ype  [d]elete take  [s]how takes  [q]uit")
+    print("\n[r]ecord  [f]ile wav  [p]lace  [a]ccept  [x]reject  [t]ype  [l]isten  [d]elete take  [s]how takes  [q]uit")
 
 
 def accept():
@@ -269,6 +271,11 @@ def main():
             t = ask("  take id: ").strip()
             if t in live():
                 ev("TakeDeleted", take=t, reason=ask("  reason: "))
+        elif k == "l":
+            t = ask("  take id: ").strip()
+            e = next((e for e in thread if e["type"] == "TakeRecorded" and e["take"] == t), None)
+            for w in (e or {}).get("wavs") or ([e["wav"]] if e and "wav" in e else []):
+                run(["pw-play", w])
         elif k == "s":
             for t, x in takes.items():
                 print(f"  {t}{' (deleted)' if t not in live() else ''}: {x}")
