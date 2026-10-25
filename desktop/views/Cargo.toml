@@ -1,0 +1,23 @@
+[package]
+name = "vb-views"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Regenerates the desktop crates' views (the push-to-talk state machine) with frankenmermaid"
+
+[dependencies]
+vb-talk = { path = "../talk" }
+fm-parser = { git = "https://github.com/Dicklesworthstone/frankenmermaid", rev = "d5ade10ac414a8c9eb07bd42b3df6a62c6474f6f" }
+fm-render-svg = { git = "https://github.com/Dicklesworthstone/frankenmermaid", rev = "d5ade10ac414a8c9eb07bd42b3df6a62c6474f6f" }
+fm-render-term = { git = "https://github.com/Dicklesworthstone/frankenmermaid", rev = "d5ade10ac414a8c9eb07bd42b3df6a62c6474f6f" }
+fm-layout = { git = "https://github.com/Dicklesworthstone/frankenmermaid", rev = "d5ade10ac414a8c9eb07bd42b3df6a62c6474f6f" }
+fm-core = { git = "https://github.com/Dicklesworthstone/frankenmermaid", rev = "d5ade10ac414a8c9eb07bd42b3df6a62c6474f6f" }
+resvg = "=0.48.1"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+wildcard_enum_match_arm = "deny"
+
+[workspace]

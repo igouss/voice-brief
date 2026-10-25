@@ -1,0 +1,19 @@
+flowchart TB
+    start((start)) --> Idle
+    Idle[Idle]
+    Starting[Starting]
+    Recording[Recording]
+    Releasing[Releasing]
+    Stopping[Stopping]
+    Settling[Settling]
+    Idle --> t0{{"Space down / tap Space"}} --> Starting
+    Starting --> t1(["closed"]) --> Idle
+    Starting --> t2(["opened"]) --> Recording
+    Starting --> t3(["Space up, focus lost"]) --> Releasing
+    Recording --> t4(["closed"]) --> Idle
+    Recording --> t5{{"Space up, focus lost / tap Space"}} --> Stopping
+    Releasing --> t6(["closed"]) --> Idle
+    Releasing --> t7{{"opened / tap Space"}} --> Stopping
+    Stopping --> t8(["closed"]) --> Settling
+    Settling --> t9(["quiet 1 s"]) --> Idle
+    Settling --> t10{{"opened / tap Space"}} --> Stopping
