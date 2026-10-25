@@ -106,10 +106,12 @@ and it acts only where `VB_BRIEF=1`.
 - Each new stream becomes a note: a toast, a status line, and a "captured" band above the prompt.
 - **The `Voice notes` pane:**
   - lists the notes; ↗ marks the ones sent to Claude, and × deletes one;
+  - Minimize closes it and keeps a one-line summary (notes, proposal state, Open and Maximize)
+    above the prompt; Maximize asks the dock for its widest (45% of the terminal);
   - has Place, Accept, Reject and Hand off buttons;
   - shows the proposal or the accepted revision field by field: each claim with `said tN` or
     `added: reason`, and each empty field with its question.
-- Commands: `/vb`, `/vb-place`, `/vb-accept`, `/vb-reject`, `/vb-handoff`, `/vb-delete tN`,
+- Commands: `/vb`, `/vb-min`, `/vb-max`, `/vb-place`, `/vb-accept`, `/vb-reject`, `/vb-handoff`, `/vb-delete tN`,
   `/vb-fix tN <text>`.
 - **Placement** runs `spike/isolation/run.sh isolated` and the Rust validator, found beside the
   mod, so a notes pane works in any repository.

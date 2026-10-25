@@ -120,6 +120,7 @@ Then:
 | Command | Does |
 |---|---|
 | `/vb` | open the Voice notes pane |
+| `/vb-min`, `/vb-max` | shrink the pane to one line above the prompt, or widen it to the largest dock (also buttons in the pane) |
 | `/vb-place` | place every live note into the five fields |
 | `/vb-accept`, `/vb-reject` | accept or reject the proposal |
 | `/vb-handoff` | copy the accepted prompt to the clipboard and write `prompt.md` |

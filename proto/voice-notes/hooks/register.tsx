@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderSurface } from 'claude-code'
 
-import type { Claim, Note, Proposal } from '../types'
+import type { Claim, Note, PaneSize, Proposal } from '../types'
 
 const PANE = 'voice-notes'
 const FIELDS: [string, string][] = [
@@ -19,6 +19,9 @@ const rev = atom({ plugin: 'voice-notes', key: 'rev' } as const, 0)
 const busy = atom({ plugin: 'voice-notes', key: 'busy' } as const, null as string | null)
 const message = atom({ plugin: 'voice-notes', key: 'message' } as const, '')
 const latest = atom({ plugin: 'voice-notes', key: 'latest' } as const, null as string | null)
+const size = atom({ plugin: 'voice-notes', key: 'size' } as const, 'normal' as PaneSize)
+
+const COLUMNS: Record<PaneSize, number> = { min: 0, normal: 56, max: 400 }
 
 type IndexRow = { name: string; start: number; pid?: number | null; final: string; wav: string; closed_by_client: boolean; endpoint: boolean }
 
@@ -108,6 +111,12 @@ async function place($: EngineInterface): Promise<void> {
   }
 }
 
+async function resize($: EngineInterface, to: PaneSize): Promise<void> {
+  await update($, size, () => to)
+  await $.ui.close({ id: PANE })
+  if (to !== 'min') await $.ui.open({ id: PANE, title: 'Voice notes', columns: COLUMNS[to], rows: to === 'max' ? 40 : 16 })
+}
+
 async function isFresh($: EngineInterface, p: Proposal): Promise<boolean> {
   const ids = live(await read($, notes)).map(([t]) => t)
   return p.base === (await read($, rev)) && p.ctx.every(t => ids.includes(t))
@@ -189,12 +198,12 @@ export const register: Register = on => {
     thread = []
     await log($, 'SessionStarted', { pid, project, tools: root })
     await $.process.run(['cargo', 'build', '-q', '--bins'], { cwd: `${root}/spike/contract`, timeoutMs: 300000 })
-    for (const name of ['vb', 'vb-place', 'vb-accept', 'vb-reject', 'vb-handoff', 'vb-delete', 'vb-fix']) {
+    for (const name of ['vb', 'vb-min', 'vb-max', 'vb-place', 'vb-accept', 'vb-reject', 'vb-handoff', 'vb-delete', 'vb-fix']) {
       await $.command.register({ name, description: `voice-brief: ${name === 'vb' ? 'open the notes pane' : name.slice(3)}` })
     }
     $.clock.every(1000, () => void poll($))
     $.ui.status('voice notes: listening')
-    void $.ui.open({ id: PANE, title: 'Voice notes' })
+    void resize($, await read($, size))
     return next(e)
   })
 
@@ -202,7 +211,9 @@ export const register: Register = on => {
     if (!isNotesPane || !e.command.startsWith('vb')) return next(e)
     const [take = '', ...rest] = e.args.trim().split(/\s+/)
     switch (e.command) {
-      case 'vb': await $.ui.open({ id: PANE, title: 'Voice notes' }); return { text: 'Voice notes pane opened.' }
+      case 'vb': await resize($, 'normal'); return { text: 'Voice notes pane opened.' }
+      case 'vb-min': await resize($, 'min'); return { text: 'Voice notes minimized to the line above the prompt.' }
+      case 'vb-max': await resize($, 'max'); return { text: 'Voice notes maximized.' }
       case 'vb-place': await place($); return { text: (await read($, message)) || 'Placed.' }
       case 'vb-accept': await accept($); return { text: await read($, message) }
       case 'vb-reject': await reject($); return { text: await read($, message) }
@@ -227,14 +238,33 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const last = isNotesPane ? await read($, latest) : null
-    if (!last) return next(e)
-    const { Box, Text } = $.ui.resolve(e)
+    if (!isNotesPane) return next(e)
+    const last = await read($, latest)
+    const isMin = (await read($, size)) === 'min'
+    if (!last && !isMin) return next(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const list = await read($, notes)
+    const p = await read($, proposal)
+    const acc = await read($, accepted)
+    const working = await read($, busy)
+    const state = working ?? (p ? 'proposal ready' : acc ? `revision ${await read($, rev)} accepted` : 'no proposal')
     return (
-      <Box>
-        <Text color="success">● captured </Text>
-        <Text wrap="truncate-end">{last}</Text>
-        <Text dimColor>   saved to notes; Enter also sends it to Claude</Text>
+      <Box flexDirection="column">
+        {last && (
+          <Box>
+            <Text color="success">● captured </Text>
+            <Text wrap="truncate-end">{last}</Text>
+            <Text dimColor>   saved to notes; Enter also sends it to Claude</Text>
+          </Box>
+        )}
+        {isMin && (
+          <Box gap={1}>
+            <Text color="claude">Voice notes</Text>
+            <Text dimColor>{live(list).length} notes · {state}</Text>
+            <Button key="restore" label="Open" onPress={() => void resize($, 'normal')} />
+            <Button key="max" label="Maximize" onPress={() => void resize($, 'max')} />
+          </Box>
+        )}
       </Box>
     )
   })
@@ -256,6 +286,12 @@ export const register: Register = on => {
     }
     return (
       <Box flexDirection="column" gap={1}>
+        <Box gap={1}>
+          <Button key="min" label="Minimize" onPress={() => void resize($, 'min')} />
+          {(await read($, size)) === 'max'
+            ? <Button key="restore" label="Restore" onPress={() => void resize($, 'normal')} />
+            : <Button key="max" label="Maximize" onPress={() => void resize($, 'max')} />}
+        </Box>
         <Box flexDirection="column">
           <Text bold>Notes ({live(list).length}) <Text dimColor>{project}</Text></Text>
           {list.length === 0 && <Text dimColor>Dictate with /voice. Each dictation lands here; Enter is optional.</Text>}

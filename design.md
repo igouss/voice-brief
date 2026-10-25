@@ -83,7 +83,7 @@ notes pane: claude in this repo (.claude/settings.json)    vb-voice-proxy.servic
 - **The mod** (`proto/voice-notes/`) shows the notes and their audio, places them, shows each
   claim as `said tN` or `added: reason` and each empty field with its question, and accepts,
   rejects and hands off. Hand-off copies the prompt to the clipboard and writes `prompt.md`.
-  Commands: `/vb`, `/vb-place`, `/vb-accept`, `/vb-reject`, `/vb-handoff`, `/vb-delete tN`,
+  Commands: `/vb`, `/vb-min`, `/vb-max`, `/vb-place`, `/vb-accept`, `/vb-reject`, `/vb-handoff`, `/vb-delete tN`,
   `/vb-fix tN <text>`.
 - **Placement** is the spike's path: an isolated `claude -p` that sees only the explicit prompt
   (`spike/isolation/`), then the Rust validator (`spike/contract/`). That Rust core also builds
