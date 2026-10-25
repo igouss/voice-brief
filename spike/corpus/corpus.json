@@ -1,0 +1,126 @@
+[
+ {
+  "id": "t3",
+  "topic": "the debug log as a dependency",
+  "transcript": "Regarding the debug log as a dependency, there is no other way to get a hold of this information, so I think we'll just have to live with that. and it's only when we're using it from claude Code. The application itself should or still support recording and transcribing locally through the vox when I'm not running it from the claude code instance.",
+  "heard": "Regarding the debug log as a dependency, there is no other way to get a hold of this information, so I think we'll just have to live with that. and it's only when we're using it from Visual Code. The application itself should or still support recording and transcribing locally through the box when I'm not running it from the code code instance.",
+  "audio": "spike/corpus/audio/t3.wav",
+  "recorded_with": "voxtype via proto/vb_proto.py, edited before approval",
+  "claims": [
+   {
+    "span": "the debug log as a dependency",
+    "field": "Weakest part"
+   },
+   {
+    "span": "there is no other way to get a hold of this information",
+    "field": "Force"
+   },
+   {
+    "span": "I think we'll just have to live with that",
+    "field": "Smallest move"
+   },
+   {
+    "span": "it's only when we're using it from claude Code",
+    "field": "none"
+   },
+   {
+    "span": "The application itself should or still support recording and transcribing locally through the vox when I'm not running it from the claude code instance",
+    "field": "Preserves"
+   }
+  ],
+  "empty": [
+   "Would reverse it"
+  ],
+  "confirmed": {
+   "date": "2026-10-25",
+   "words": "confirmed, audio is saved in a separate folder, but let's not track it in git yet"
+  }
+ },
+ {
+  "id": "t4",
+  "topic": "Rust vs TypeScript",
+  "transcript": "So regarding Rust and TypeScript, I'm not too familiar with TypeScript and I don't like that it's weak typed, I don't like its syntax, I don't like its weak weak typing and I had that problem working with TypeScript project before. The code just looked like a masks and on the other hand Rust seems to be well organized. I like the module system and I like the performance.",
+  "heard": "So regarding Rust and TypeScript, I'm not too familiar with TypeScript and I don't like that it's I don't like its syntax, I don't like its weak weak typing and I had that problem working with TypeScript project before. The code just looked like a masks and on the other hand Rust seems to be well organized. I like the module system and I like the performance.",
+  "audio": "spike/corpus/audio/t4.wav",
+  "recorded_with": "voxtype via proto/vb_proto.py, edited before approval",
+  "claims": [
+   {
+    "span": "I don't like that it's weak typed, I don't like its syntax, I don't like its weak weak typing and I had that problem working with TypeScript project before. The code just looked like a masks",
+    "field": "Force"
+   },
+   {
+    "span": "Rust seems to be well organized. I like the module system and I like the performance",
+    "field": "Force"
+   },
+   {
+    "span": "I'm not too familiar with TypeScript",
+    "field": "none"
+   }
+  ],
+  "empty": [
+   "Weakest part",
+   "Smallest move",
+   "Preserves",
+   "Would reverse it"
+  ],
+  "confirmed": {
+   "date": "2026-10-25",
+   "words": "confirmed, audio is saved in a separate folder, but let's not track it in git yet"
+  }
+ },
+ {
+  "id": "t5",
+  "topic": "one central briefs repo",
+  "transcript": "the briefs one central repo. That's where briefs live and I think that would be fine for this first prototype.",
+  "heard": "the briefs one central river. That's where Eriston briefs and I think that would be fine for this first prototype.",
+  "audio": "spike/corpus/audio/t5.wav",
+  "recorded_with": "voxtype via proto/vb_proto.py, edited before approval",
+  "claims": [
+   {
+    "span": "the briefs one central repo. That's where briefs live",
+    "field": "Smallest move"
+   },
+   {
+    "span": "I think that would be fine for this first prototype",
+    "field": "none"
+   }
+  ],
+  "empty": [
+   "Weakest part",
+   "Force",
+   "Preserves",
+   "Would reverse it"
+  ],
+  "confirmed": {
+   "date": "2026-10-25",
+   "words": "confirmed, audio is saved in a separate folder, but let's not track it in git yet"
+  }
+ },
+ {
+  "id": "t6",
+  "topic": "open and close the app with F1",
+  "transcript": "So I was thinking that this application should be easily accessible with a short key. So let's put it on F one that would open and close this application.",
+  "heard": "So I was thinking that this application should be easily accessible with a short key. So let's put it on F one that would open and close this application.",
+  "audio": "spike/corpus/audio/t6.wav",
+  "recorded_with": "voxtype via proto/vb_proto.py",
+  "claims": [
+   {
+    "span": "this application should be easily accessible with a short key",
+    "field": "Force"
+   },
+   {
+    "span": "put it on F one that would open and close this application",
+    "field": "Smallest move"
+   }
+  ],
+  "empty": [
+   "Weakest part",
+   "Preserves",
+   "Would reverse it"
+  ],
+  "confirmed": {
+   "date": "2026-10-25",
+   "words": "confirmed, audio is saved in a separate folder, but let's not track it in git yet"
+  }
+ }
+]
