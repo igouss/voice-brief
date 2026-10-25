@@ -146,7 +146,8 @@ design passes and each rule's removal is caught.
 
 **Changed on 2026-10-25** (see Decisions): inside Claude Code, ideas are dictated with its
 `/voice`; outside Claude Code, the app still records and transcribes locally with voxtype. What
-follows is the voxtype design, which now covers only that second path.
+follows is the voxtype design, which now covers only that second path. Work concentrates on the Claude Code
+path for now; this one waits.
 What the switch changes, as far as checked:
 
 - Capture is a prompt in a Claude Code session started with `DEBUG=1`. The `UserPromptSubmit`
@@ -297,6 +298,8 @@ Operator words, 2026-10-25:
 - Dictated as corpus take t3: "The application itself should or still support recording and
   transcribing locally through the vox when I'm not running it from the claude code instance."
   Then, asked whether to record it: "yes, add it to design.md".
+- "to be a dual mode application. It should support Claude Code and it should support recording
+  when it's running outside the Claude Code. For now, concentrate on the Claude Code version."
 
 ## Open questions
 
