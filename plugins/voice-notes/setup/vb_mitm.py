@@ -10,13 +10,21 @@ RATE = 16000
 streams = {}
 
 
-def client_pid(port):
+def port_of(endpoint):
+    return int(endpoint.rsplit(":", 1)[1], 16)
+
+
+def client_inodes(tables, client_port, proxy_port):
     inodes = set()
-    for table in ("/proc/net/tcp", "/proc/net/tcp6"):
-        for line in open(table).read().splitlines()[1:]:
-            cols = line.split()
-            if int(cols[1].rsplit(":", 1)[1], 16) == port:
-                inodes.add(cols[9])
+    for line in tables.splitlines():
+        cols = line.split()
+        if len(cols) > 9 and cols[0].endswith(":") and port_of(cols[1]) == client_port and port_of(cols[2]) == proxy_port:
+            inodes.add(cols[9])
+    return inodes
+
+
+def client_pid(client_port, proxy_port):
+    inodes = client_inodes("".join(open(t).read() for t in ("/proc/net/tcp", "/proc/net/tcp6")), client_port, proxy_port)
     for pid in filter(str.isdigit, os.listdir("/proc")):
         try:
             for fd in os.listdir(f"/proc/{pid}/fd"):
@@ -61,7 +69,7 @@ def is_voice(flow):
 def websocket_start(flow: http.HTTPFlow):
     if not is_voice(flow):
         return
-    pid = client_pid(flow.client_conn.peername[1])
+    pid = client_pid(flow.client_conn.peername[1], flow.client_conn.sockname[1])
     project = project_of(pid)
     base = DATA / slug(project)
     (base / "open").mkdir(parents=True, exist_ok=True)
