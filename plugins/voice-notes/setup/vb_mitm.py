@@ -74,7 +74,7 @@ def websocket_start(flow: http.HTTPFlow):
     base = DATA / slug(project)
     (base / "open").mkdir(parents=True, exist_ok=True)
     name = time.strftime("%Y%m%dT%H%M%S") + f"-{flow.id[:8]}"
-    (base / "open" / name).touch()
+    (base / "open" / name).write_text(f"{pid or ''}\n")
     streams[flow.id] = {"name": name, "start": time.time(), "audio": bytearray(), "chunks": 0, "pid": pid,
                         "project": project, "base": base,
                         "client_text": [], "server_text": []}
