@@ -164,7 +164,7 @@ which it cannot change:
 
 The definitions are in `idea.md`'s format table; the rubric file is generated from it, not
 written separately (cm-eds). "Nothing is weak; no structural change" is an outcome the app
-accepts: the idea is then closed, not handed off.
+accepts; *assumption, flagged:* the idea is then closed, not handed off.
 
 ## Hand-off
 
