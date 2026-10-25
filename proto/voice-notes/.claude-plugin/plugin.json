@@ -1,0 +1,1 @@
+{ "name": "voice-notes", "version": "0.1.0", "description": "voice-brief notes pane: captured dictations, the five-field prompt, place, accept and hand off", "types": "./types/index.d.ts" }

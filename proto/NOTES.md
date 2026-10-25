@@ -136,3 +136,33 @@ where I just open Claude and use its voice … for this application to populate 
   - hook plus app: a dictated entry and a sent entry made one take marked "sent to Claude".
 
   The live proxy reloaded the addon itself, and new streams carry the client pid.
+
+## Prototype 3: everything inside Claude Code (a mod)
+
+Operator, 2026-10-25: "Maybe we could just use Claude mods and this void capture and processing,
+and we just do it from the inside Claude code. Maybe we don't need to write an application right
+now."
+
+`proto/voice-notes/` is a Claude Code mod. `vb-claude.sh --brief` loads it with `--plugin-dir`,
+and it acts only where `VB_BRIEF=1`.
+
+- On start it finds its own `claude` process, then reads `~/tmp/vb-proto-audio/index.jsonl` every
+  second for streams of that process since the session began. Each becomes a note: a toast, a
+  status line, and a "captured" band above the prompt.
+- The `Voice notes` pane lists the notes (↗ marks the ones sent to Claude, × deletes one). It has
+  buttons Place, Accept, Reject and Hand off, and shows the proposal or the accepted revision
+  field by field, each claim with `said tN` or `added: reason` and each empty field with its
+  question.
+- Commands: `/vb`, `/vb-place`, `/vb-accept`, `/vb-reject`, `/vb-handoff`, `/vb-delete tN`,
+  `/vb-fix tN <text>`.
+- Placement is the same as prototype 2: `spike/isolation/run.sh isolated` and the Rust validator.
+  Hand-off copies the prompt to the clipboard (`$.ui.copy`) and writes `prompt.md`.
+- Every event goes to `~/tmp/vb-notes/<start>/thread.jsonl`.
+- Checked 2026-10-25:
+  - `claude plugin validate` passes;
+  - `tsc` against this build's API is clean;
+  - `claude plugin test`: a stream from this process becomes `t1`, and one from another process
+    stays out. The first test was seen red with the pid changed.
+  - A headless `claude -p` with the mod recorded its own pid correctly (1022063, the launched
+    process), registered the seven commands, and placed the pane (no surface under `-p`).
+- Not yet run in the operator's notes pane.
