@@ -110,16 +110,29 @@ runs `claude` with `HTTPS_PROXY` and the mitmproxy CA.
 
 ## Prototype 2: the Claude Code loop
 
-`vb_brief.py` answers a second question: does the loop of dictating in a brief pane, seeing the
+`vb_brief.py` answers a second question: does the loop of dictating in a notes pane, seeing the
 idea placed, answering by voice, accepting and handing off feel right?
 
-- `proto/vb-claude.sh --brief` starts a Claude Code session whose dictated prompts go into the
-  idea only (the hook blocks them from the agent). Typed prompts still reach the agent.
-- `python3 proto/vb_brief.py` in another pane picks up each dictation within a second.
+Operator, 2026-10-25: "I don't want to send the dictated text to the model when I don't want to,
+and if I do want to send the dictated text, I will just press enter … For now, a preferred mode
+where I just open Claude and use its voice … for this application to populate voice notes."
+
+- `proto/vb-claude.sh --brief` starts the notes pane: a Claude Code session with `VB_BRIEF=1`.
+- When a voice stream from that pane ends, `vb_mitm.py` appends it to the inbox. The proxy finds
+  the client's process from its socket and checks its environment for `VB_BRIEF=1`. Each entry
+  holds the transcript and the WAV. No Enter is needed.
+- Enter is optional and sends the text to that pane's agent as usual. The hook (only with
+  `VB_BRIEF`) then appends a `sent` entry naming the streams the prompt contains, and the app
+  marks those takes "sent to Claude".
+- Dictations in other sessions are not captured.
+- `python3 proto/vb_brief.py` drains the inbox every second.
   - `p` places every live take through `spike/isolation/run.sh isolated` and the Rust validator.
   - Each claim shows `said tN` or `ADDED: reason`; each empty field shows its question.
-  - Answering is dictating again, then `p`.
   - `a` accepts. `h` writes `prompt.md` and copies it to the clipboard.
   - `e` corrects a take's text, `d` deletes a take, `l` plays its audio.
-- Checked with piped input on 2026-10-25: two inbox takes, place (7.6 s), accept, then hand-off to
-  the clipboard. Not yet run by the operator.
+- Checked 2026-10-25:
+  - piped input: place (7.6 s), accept and hand-off;
+  - the notes-pane check: true for the notes-pane process, false for this session;
+  - hook plus app: a dictated entry and a sent entry made one take marked "sent to Claude".
+
+  The live proxy reloaded the addon itself, and new streams carry the client pid.

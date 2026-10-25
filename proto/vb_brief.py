@@ -64,13 +64,18 @@ def drain_inbox():
         if not line.strip():
             continue
         entry = json.loads(line)
-        tid = f"t{len(takes) + 1}"
-        takes[tid] = entry["text"]
-        audio = entry.get("audio") or {}
-        ev("TakeRecorded", take=tid, source=entry["source"], text=entry["text"], dictated=entry.get("dictated"),
-           edited=audio.get("edited"), audio_ok=audio.get("ok"),
-           wavs=[s["wav"] for s in audio.get("segments", []) if "wav" in s])
-        status = f"{tid} arrived from Claude Code"
+        if entry.get("kind") == "dictated":
+            tid = f"t{len(takes) + 1}"
+            takes[tid] = entry["text"]
+            ev("TakeRecorded", take=tid, source="claude-code-voice", stream=entry["stream"], text=entry["text"],
+               audio_ok=entry.get("ok"), wavs=[entry["wav"]])
+            status = f"{tid} dictated"
+        elif entry.get("kind") == "sent":
+            for e in [e for e in thread if e["type"] == "TakeRecorded" and e.get("stream") in entry["streams"]]:
+                ev("TakeSent", take=e["take"], prompt=entry["prompt"])
+                status = f"{e['take']} also sent to Claude"
+        else:
+            trace("inbox_ignored", entry=entry)
     return True
 
 
@@ -86,7 +91,7 @@ def take_of(span):
 def place():
     global proposal, status
     if not live():
-        status = "no takes yet: dictate in the brief pane"
+        status = "no takes yet: dictate in the notes pane"
         return
     out = WORK / f"place-{len(thread) + 1}"
     out.mkdir()
@@ -190,10 +195,11 @@ def listen():
 def show():
     os.system("clear")
     print(f"voice-brief PROTOTYPE 2 (Claude Code mode)   revision {rev()}   log {WORK}")
-    print("\nTAKES" + ("" if takes else "  (none yet: dictate in the brief pane)"))
+    print("\nTAKES" + ("" if takes else "  (none yet: dictate in the notes pane)"))
     for t, x in takes.items():
         e = next(e for e in thread if e["type"] == "TakeRecorded" and e["take"] == t)
-        flags = ["deleted" if t not in live() else "", "edited" if e.get("edited") else "",
+        sent = any(x["type"] == "TakeSent" and x["take"] == t for x in thread)
+        flags = ["deleted" if t not in live() else "", "sent to Claude" if sent else "",
                  "audio" if e.get("wavs") else "no audio"]
         print(f"  {t} [{', '.join(f for f in flags if f)}] {x[:150]}{'…' if len(x) > 150 else ''}")
     view, label = (proposal, "PROPOSAL") if proposal else (accepted, f"ACCEPTED revision {rev()}")
