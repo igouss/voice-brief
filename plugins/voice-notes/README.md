@@ -37,6 +37,13 @@ writes only voice streams to disk.
 `/voice` and dictate. Each dictation becomes a note in the Voice notes pane as soon as it is
 transcribed; Enter only decides whether the agent also gets it.
 
+**Tap mode** (`"voice": { "mode": "tap" }` in the project's `.claude/settings.local.json`): Space
+starts recording and Space again stops it, and Claude Code then submits the transcript by itself.
+The plugin drops that submission before it reaches the agent ("Kept as voice note tN; not sent to
+the agent") and clears the prompt box. Only a prompt that is exactly a dictation this session just
+captured is dropped; anything typed is sent. Tap mode is what lets the desktop window start and
+stop recording with one key each.
+
 | Command | Does |
 |---|---|
 | `/vb`, `/vb-min`, `/vb-max` | open, minimize to one line above the prompt, maximize |
@@ -51,3 +58,15 @@ with only the plugin's system prompt: no `CLAUDE.md`, tools or history. A valida
 plugin rejects any reply whose quoted words are not in your notes.
 
 Data, per Git project: `~/.local/share/voice-brief/projects/<git root with / as ->/`.
+
+## Checks
+
+```bash
+claude plugin validate plugins/voice-notes
+claude plugin test plugins/voice-notes
+(cd plugins/voice-notes/setup && ~/.local/share/uv/tools/mitmproxy/bin/python -m unittest test_vb_mitm)
+```
+
+The plugin's `ThreadEvent`, `ThreadLine`, `Claim` and `Field` types at the top of
+`types/index.d.ts` are generated from `desktop/thread/src/wire.rs`; `cargo test --workspace` in
+`desktop/` fails when they drift.

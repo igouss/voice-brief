@@ -72,7 +72,8 @@ claude (at a project's root)                 vb-voice-proxy.service (systemd use
    audio and Anthropic's transcript. It ties each stream to the `claude` process that opened it
    and that process's Git project.
 2. **Notes.** The `voice-notes` plugin turns every dictation from its own session into a note the
-   moment it is transcribed. Enter is optional: it only decides whether the agent in that session
+   moment it is transcribed (in tap mode the plugin keeps every dictation away from the agent;
+   see the plugin README). Enter is optional: it only decides whether the agent in that session
    also gets the text.
 3. **Placement.** Place sends all live notes through Claude Code's own model API with only the
    plugin's system prompt (no `CLAUDE.md`, memory, skills or tools); the field definitions come
@@ -135,6 +136,16 @@ marketplace; run `/vb-setup` once and restart.
 | `/vb-fix t3 <text>` | correct a note's transcript |
 | `/vb-setup` | install the proxy and this project's settings |
 
+## Desktop window (optional, Omarchy)
+
+[`desktop/`](desktop/README.md) is a Rust + GPUI window that shows every session's takes and
+placement outside the terminal; F1 slides it in and out through a Hyprland special workspace. It
+only reads: Place, Accept and Hand off stay in Claude Code. Build, install and the three Hyprland
+lines: [`desktop/README.md`](desktop/README.md).
+
+The thread events are defined once, in Rust (`desktop/thread/src/wire.rs`); the plugin's
+TypeScript types for them are generated from that file, and a test fails when they drift.
+
 ## Where the data lives
 
 Per Git project, outside the repository:
@@ -172,6 +183,7 @@ Per Git project, outside the repository:
 
 ## Limitations
 
+- The desktop window cannot place, accept or hand off yet.
 - One machine, one person. Linux only: the proxy finds the client process through `/proc`, and
   setup uses systemd user services.
 - The local mode (transcribing with voxtype on this machine) is designed but not built.
@@ -184,8 +196,10 @@ Per Git project, outside the repository:
 | Path | What |
 |---|---|
 | [`idea.md`](idea.md) | the problem and the five-field format, the single source of the field definitions |
-| [`design.md`](design.md) | the design, decisions in the operator's words, open questions |
+| [`design.md`](design.md) | the design and open questions |
+| [`decisions.md`](decisions.md) | the operator's decisions, verbatim |
 | [`plugins/voice-notes/`](plugins/voice-notes/README.md) | the Claude Code plugin: pane, placement, validator, `/vb-setup`, the proxy addon and its service template |
+| [`desktop/`](desktop/README.md) | the Omarchy desktop window, and `vb-thread`, the thread event schema the plugin's types are generated from |
 | [`proto/NOTES.md`](proto/NOTES.md) | what each prototype asked and showed |
 | [`spike/`](spike/) | the drafting spike: isolation of model calls, the corpus, the Rust contract and validator (checked against the plugin's cases), its workers-rs build |
 | [`spec/tla/`](spec/tla/README.md) | a TLA+ model of the job protocol for the planned celld version |

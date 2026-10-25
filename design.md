@@ -69,6 +69,20 @@ claude, at a project's root                                  vb-voice-proxy.serv
   pid).
 - **Capture needs no Enter.** A dictation becomes a note as soon as Anthropic finishes
   transcribing it. Enter sends it to the session's agent as usual, and the note is marked sent.
+- **Tap mode never sends a dictation.** With `voice.mode` `tap` in the project's settings, Claude
+  Code submits each transcript when recording stops. The plugin's `prompt.submit` hook drops a
+  prompt that equals a dictation just captured from this process (waiting up to 3 s for the
+  proxy's row) and clears the prompt box if it still holds that text. Force: tap mode is what an
+  outside key press can drive (one press starts, one stops; a held key cannot be faked from
+  outside), and "the message was sent to the agent. I don't want that." Would reverse it: a way
+  to send a dictation on purpose in tap mode. Checked 2026-10-25: Space sent to a test session's
+  window with `hyprctl` started and stopped recording; two takes fed through a virtual microphone
+  became t1 and t2, both dropped, the box empty, the agent idle. Gate:
+  `plugins/voice-notes/tests/capture.test.tsx` ("in tap mode …").
+- **A stream belongs to the process connected to the proxy.** The addon finds the client by the
+  TCP socket whose local port is the client's and whose remote port is the proxy's. Matching the
+  local port alone filed a dictation under an unrelated process that had a socket on the same
+  port number elsewhere (seen 2026-10-25). Gate: `plugins/voice-notes/setup/test_vb_mitm.py`.
   *Checked* live: one note sent, one left unsent.
 - **The plugin is active wherever it is enabled.** A session whose `HTTPS_PROXY` is not the voice
   proxy shows "not capturing" and points to `/vb-setup`. In this repo `.claude/settings.json`
@@ -89,6 +103,42 @@ claude, at a project's root                                  vb-voice-proxy.serv
   in the crate. Changing one expected result fails both (*checked*). The Rust crate also builds to
   WebAssembly with workers-rs (`spike/worker/`), for celld later.
 
+## Desktop window (Omarchy)
+
+**Diagnosis (cm-dr0).** Weakest part: the plugin's state is visible only in a pane of the one
+Claude Code session that captured it, and that pane competes with the agent for terminal width.
+Force: the notes and the five fields need to be glanceable from anywhere on the desktop, without
+giving up the in-session flow that works. Smallest move: a read-only window over the files the
+plugin already writes, shown and hidden by a key. Nothing in the plugin changes except that its
+events are now typed from one schema.
+
+- **What it shows.** Every session under `~/.local/share/voice-brief/projects/*/notes/` that has a
+  take or whose `claude` process is still running, newest first: its takes (sent, edited, cut off,
+  deleted), and its placement (placing, failed, the proposal, or the accepted revision and whether
+  it was handed off), each claim with the take its quote came from. It re-reads changed threads
+  every second.
+- **Read-only.** *Assumption, flagged (cm-vph):* Place, Accept and Hand off stay in Claude Code.
+  Driving them from the window needs a command channel into the plugin (it polls files, so one is
+  possible), and that protocol is not decided.
+- **One schema for the thread.** The events are defined once, in Rust:
+  [`desktop/thread/src/wire.rs`](desktop/thread/src/wire.rs). The window replays them with it, and
+  the plugin's `ThreadEvent`, `ThreadLine`, `Claim` and `Field` types are generated from it with
+  ts-rs into the top of `plugins/voice-notes/types/index.d.ts` (the plugin's types contract must
+  be one self-contained file). `log()` in the plugin accepts only a `ThreadEvent`, so `tsc`
+  rejects an event the window could not read. Regenerate with
+  `cargo run -q -p vb-thread --bin thread-ts -- ../plugins/voice-notes/types/index.d.ts` from
+  `desktop/`; `cargo test -p vb-thread --test typescript` fails while the committed file differs.
+- **The fold** is `Thread::step(self, Event) -> Self` in `desktop/thread`, a crate with only
+  serde, serde_json and ts-rs, so it builds and tests without GPUI (cm-hkg). Placement is a sum
+  type (`Idle`, `Placing`, `Proposed`, `Failed`); accepting or rejecting outside `Proposed` changes
+  nothing. A line that does not parse is counted, not fatal.
+- **F1 is Hyprland's.** Wayland gives an app no global keys, so the window (app id `voice-brief`)
+  is sent to the special workspace `voicebrief` by a window rule, F1 toggles that workspace, and
+  autostart launches the app at login: the Omarchy scratchpad idiom.
+- **Build note.** `gpui-pre-macros` leaves a helper ungated in release builds while its module is
+  gated on `debug_assertions`, so `desktop/Cargo.toml` turns debug assertions on for that one
+  proc-macro in release, as disktree does.
+
 ## Where the data lives: per Git project
 
 ```
@@ -107,7 +157,8 @@ from the earlier decision is not created yet.
 ## The record: one append-only thread per idea
 
 Each idea has one `thread.jsonl`, a list of typed events that is only ever appended to.
-Everything else about the idea (the five fields, the numbered revisions, where each sentence came
+The events written today are defined in `desktop/thread/src/wire.rs` (Desktop window, above);
+the list below is the planned set. Everything else about the idea (the five fields, the numbered revisions, where each sentence came
 from, what is waiting for me) is computed from it. Prototype 3 keeps one thread per notes-pane
 session; ideas as a unit of their own come later.
 

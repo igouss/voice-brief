@@ -54,3 +54,9 @@ Operator words, 2026-10-25:
 - "Okay, package this as a Claude Code plugin." Asked how to run the validator and set up the
   proxy: "Port to TypeScript", "/vb-setup command". Then: "the proper rewrite. Don't spawn using
   command line. Use a built-in claude code facilities to do this."
+- "let's add a Rust + GPUI app that would integrate this app/plugin with my omarchy desktop,
+  hide/show with F1, and design a nice looking minimalist user interface for it." Then: "which
+  generate the model for the TypeScript from my Rust code. So we have a single source of truth."
+- "I'm ok to set local settings for tap mode if it will simplify the integration." "you can have
+  a hook that would stop the message from going to agent." After a test dictation reached the
+  agent: "the message was sent to the agent. I don't want that."
