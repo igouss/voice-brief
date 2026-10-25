@@ -1,20 +1,34 @@
 # voice-brief — design
 
-Speak ideas into a brief, refine them by voice and keyboard with AI help, and hand the
-finished prompt to an agent in the project you are working on. The problem and the
-motivation are in [`idea.md`](idea.md); the golden cases are in [`examples.md`](examples.md).
-Mock-ups: [`mockups/01-workspace.html`](mockups/01-workspace.html).
+Develop an idea by voice and keyboard, with AI help, into a task prompt for an agent, and hand
+the prompt to an agent in the project you are working on. The problem, the prompt format and its
+lineage are in [`idea.md`](idea.md). Mock-ups: [`mockups/01-workspace.html`](mockups/01-workspace.html)
+(drawn before the format was fixed; they show free-form ideas, not the five fields).
 
 Status: design. Nothing is built. Claims marked *checked* were run on this machine on
 2026-10-25; everything else is intended behaviour.
 
 ## Diagnosis (cm-dr0)
 
-Nothing exists, so the weakest part is the riskiest assumption: that the model can revise,
-review and grade an idea while separating what I said from what it adds. The first move is a
-spike on the four golden cases in `examples.md`, before any UI. The spike is refuted if a
-revision drops what I meant or if added claims (cm-nr1's CI diffing, cm-27o's calibration) come
-back unflagged.
+Nothing exists, so the weakest part is the riskiest assumption: that the model can place my
+dictated words into the five fields (weakest part, force, smallest move, preserves, would
+reverse it) while
+separating what I said from what it adds, and that it asks instead of inventing a field I have not
+filled. The first move is a spike on dictations of real ideas, before any UI.
+
+## The unit: an idea is a task prompt
+
+| Field | What it says |
+|---|---|
+| Weakest part | Where the current whole is weakest: a specific component, file or step |
+| Force | The pressure that is unresolved there |
+| Smallest move | The one change that resolves the force and leaves the rest intact |
+| Preserves | What the change must leave intact |
+| Would reverse it | The observable result that would show the change was wrong |
+
+Weakest part, force and smallest move come from cm-dr0; preserves and would reverse it from
+cm-e2y. Words I have said that are not yet placed in a field sit in **Unsorted**. The prompt handed to
+an agent is the five fields plus my words verbatim with the date (cm-6nu).
 
 ## Forces and the cuts they earn (cm-xrl)
 
@@ -22,7 +36,7 @@ back unflagged.
 |---|---|
 | The mic and the speech model are local; the window can be hidden or closed while work continues | `vbd`, a background process on the desktop, separate from the `vb` TUI |
 | AI jobs are slow and must survive the desktop sleeping | AI runs on celld under pi-durable, not in `vbd` |
-| History, deletions and revisions must be inspectable and permanent | git is the record; celld keeps no brief state |
+| History, deletions and revisions must be inspectable and permanent | git is the record; celld keeps no idea state |
 | The bar, Herdr and the TUI all show the same progress | one state file written by `vbd`, read by all three |
 
 No other boundary is earned yet. In particular there is no drafter port: Claude through celld is
@@ -33,10 +47,10 @@ the only adapter.
 ```
 desktop                                                        celld node
 ┌─────────────── vbd (Rust, systemd user unit) ──────────────┐  HTTP+WS   ┌──────────────────────────┐
-│ capture: voxtype record --file + pw-record                 │ ─────────► │ BriefCell, one per brief │
+│ capture: voxtype record --file + pw-record                 │ ─────────► │ IdeaCell, one per idea   │
 │ model lifetime: start voxtype, unload 10 min after a take  │  jobs with │   pi-durable harness     │
 │ project resolution: herdr session.snapshot + events        │ idempotency│ AccountCell (Claude      │
-│ job queue: submit, follow, retry; results to the brief     │    keys    │   OAuth, shared with     │
+│ job queue: submit, follow, retry; results to the idea      │    keys    │   OAuth, shared with     │
 │ git writer: ~/briefs                                       │ ◄───────── │   pi-world)              │
 │ state: $XDG_RUNTIME_DIR/voice-brief/state.json             │   events   └──────────────────────────┘
 │ herdr: sidebar metadata, notifications, agent hand-off     │
@@ -52,8 +66,8 @@ desktop                                                        celld node
   toggle) and is the only writer of git and of the state file.
 - **`vb`** is a client of `vbd` over a unix socket. Closing or hiding it changes nothing in
   progress.
-- **The domain** (briefs, ideas, revisions, takes, rubric checks, id minting, assembling the final
-  prompt) is a framework-free module with no I/O, tested against `examples.md` (cm-hkg).
+- **The domain** (ideas, fields, revisions, takes, rubric checks, assembling the prompt) is a
+  framework-free module with no I/O (cm-hkg).
 - **celld** runs only the AI jobs. Each job carries everything it needs (current revision,
   transcripts in use, rubric, my instruction), so the cell can be wiped without losing anything.
   `AccountCell` is used for the second time here, which earns extracting it from pi-world into a
@@ -62,19 +76,19 @@ desktop                                                        celld node
 ## The record: `~/briefs` (one central git repo)
 
 ```
-~/briefs/<brief>/brief.toml          title, kind (definition | task), status, project.path,
-                                     project.remote, branch, herdr workspace label (display only)
-~/briefs/<brief>/ideas/03-<slug>.md  current text; front matter: revision = 7
-~/briefs/<brief>/takes/0012.opus     audio (Opus: ~50 KB per 30 s instead of ~1 MB of WAV)
-~/briefs/<brief>/takes/0012.toml     idea, mode, started, duration, model, project, transcript
-~/briefs/<brief>/reviews/0004.json   prompt sent, proposals, my decision and reason for each
-~/briefs/<brief>/grades/0009.json    rubric version, item results, suggestions
-~/briefs/<brief>/task.md             the final prompt, with its own revision number
+~/briefs/<idea>/idea.toml           title, status, project.path, project.remote, branch,
+                                    herdr workspace label (display only)
+~/briefs/<idea>/prompt.md           the five fields and Unsorted; front matter: revision = 7
+~/briefs/<idea>/takes/0012.opus     audio (Opus: ~50 KB per 30 s instead of ~1 MB of WAV)
+~/briefs/<idea>/takes/0012.toml     field, mode, started, duration, model, project, transcript
+~/briefs/<idea>/reviews/0004.json   prompt sent, proposals, my decision and reason for each
+~/briefs/<idea>/grades/0009.json    rubric version, item results, suggestions
+~/briefs/rubrics/task-v1.toml       the rubric, versioned
 ```
 
-- **Revisions are numbered per idea and per task.** Each accepted change is one commit with
-  trailers `Revision: idea-3/r7` and `Takes: 0011, 0012`. The history view is `git log` on the
-  file with those trailers rendered.
+- **Revisions are numbered per idea.** Each accepted change is one commit with trailers
+  `Revision: r7`, `Field: force` and `Takes: 0011, 0012`. The history view is `git log` on
+  `prompt.md` with those trailers rendered.
 - **Deleting a take** is `git rm` of its audio and transcript. It leaves the tree and the AI
   context, and stays in history; old revisions still name it in their trailers.
 - Herdr ids (`w1`, `w1:p1`) are never stored: they do not survive a server restart.
@@ -110,47 +124,56 @@ Rule 1 alone would have failed; rule 2 resolves it. Herdr's focus is its own, so
 right while the voice-brief window or a browser has Hyprland's focus. An SSH pane reports its
 local directory, not the remote one.
 
-`events.subscribe` keeps the TUI header and the brief list filtered to the current project. A
+`events.subscribe` keeps the TUI header and the idea list filtered to the current project. A
 Herdr plugin action, "voice-brief: note here", passes the invocation context (`workspace_cwd`,
 `focused_pane_cwd`, `worktree`) directly.
 
 ## Flows
 
+A take goes to the selected field, or to Unsorted.
+
 | Action | What happens | AI | Result |
 |---|---|---|---|
-| Append | Transcript inserted at the editor cursor | no | Unsaved edit |
+| Append | Transcript inserted at the editor cursor in the selected field | no | Unsaved edit |
 | Edit | Built-in editor (`tui-textarea`) | no | Unsaved edit |
 | Save | Commit the edited text | no | Next revision |
-| Revise | New take + current revision → a proposed revision, shown as a diff | yes | Accept = next revision; reject kept in `reviews/` |
+| Sort | Unsorted words → proposed placements into the fields, and a question for each field still empty | yes | Accept per placement |
+| Revise | New take + current field → a proposed revision of that field, shown as a diff | yes | Accept = next revision; reject kept in `reviews/` |
 | AI review | A visible, editable review prompt (template plus my instruction, typed or spoken) → proposals | yes | Accept per proposal |
-| Grade | Rubric checklist: pass / partial / missing, a score, one suggestion per gap | partly | Shown beside the idea; re-graded after each revision |
-| Task builder | A durable conversation per brief: the AI asks, I answer by voice or keyboard, the task advances by revisions | yes | `task.md`, graded |
-| Answer by voice | In a review or the task builder, a take becomes my reply and is kept as a take | — | Both |
-| New idea, brief list | `n` adds an idea; the brief list shows past briefs with status, filtered to the current project | no | — |
+| Grade | Rubric checklist per field: pass / partial / missing, one suggestion per gap | partly | Shown beside the prompt; re-graded after each revision |
+| Ask | The AI asks about the weakest field; I answer by voice or keyboard; the answer is a take | yes | Proposals for that field |
+| New idea, idea list | `n` starts an idea; the list shows past ideas with status, filtered to the current project | no | — |
 | Delete take | `git rm` the take | no | Gone from the tree and the AI context; kept in history |
 
 Every proposal is tagged `said` (with the transcript it comes from) or `added` (no transcript
-supports it). Nothing is written without my accept.
+supports it). The AI never fills an empty field with a guess: it asks. Nothing is written without
+my accept.
 
-**Grading follows cm-8gv:** items code can check are checked by code (rule has a minted id, ids
-are unique, a gate is named, my words are in the Operator decision verbatim with the date). Only
-judgement items go to the model (the force is stated; the task says what, not how, per cm-v6i).
-The rubric is a versioned file per kind in `~/briefs/rubrics/`, so the model cannot redefine it.
+**Grading follows cm-8gv.** Code checks what code can: every field is non-empty, and my words
+are quoted verbatim with the date. The model judges the rest against `rubrics/task-v1.toml`,
+which it cannot change:
+
+| Field | Passes when |
+|---|---|
+| Weakest part | names a specific place (component, file, step), not "the architecture" |
+| Force | names a pressure in conflict, not "apply pattern X" (cm-dr0) |
+| Smallest move | one move that resolves that force and leaves the rest intact (cm-dr0) |
+| Preserves | says what must stay intact |
+| Would reverse it | an observable condition: something that can be run or watched for (cm-gi3) |
 
 ## Hand-off
 
-The current revision of the task prompt goes to an agent in two ways:
+The current revision of the prompt goes to an agent in two ways:
 
-- **New agent:** in the brief's project workspace, `pane split --cwd <project> --no-focus`, then
-  `agent start brief-<id> --kind claude|pi|codex`, then `agent prompt`. The agent's state
-  (working, blocked, done) is followed through `events.subscribe` and shown on the brief.
+- **New agent:** in the idea's project workspace, `pane split --cwd <project> --no-focus`, then
+  `agent start idea-<id> --kind claude|pi|codex`, then `agent prompt`. The agent's state
+  (working, blocked, done) is followed through `events.subscribe` and shown on the idea.
 - **Paste into the selected agent:** the target defaults to Herdr's focused agent and can be
-  changed from a list of agents in the project's workspace. *Assumption, to confirm:* the text is pasted without pressing
-  Enter, so I submit it myself. *Not yet checked:* that `pane send-text` uses bracketed paste for
-  multi-line text.
+  changed from a list of agents in the project's workspace. *Assumption, to confirm:* the text is
+  pasted without pressing Enter, so I submit it myself. *Not yet checked:* that
+  `pane send-text` uses bracketed paste for multi-line text.
 
-The other targets remain: copy to the clipboard, save to `inbox/tasks/`, and for a definition, a
-patch to `CLAUDE.md` in the dotfiles repo, committed only after I confirm the diff.
+Also: copy to the clipboard, or save to `inbox/`.
 
 ## Seeing progress while hidden
 
@@ -161,9 +184,9 @@ brings it back. `vbd` keeps working either way. Progress shows in three places, 
 - **Bar widget** `elendal.voice-brief`, an Omarchy shell bar-widget plugin built like
   `elendal.audio`, placed next to `omarchy.agents`: model unloaded / loaded with countdown /
   recording to a project / working with the stage / done with a count.
-- **Notification** once, when all work for a brief is done.
+- **Notification** once, when all work for an idea is done.
 - **Herdr sidebar:** `workspace report-metadata --source voice-brief` on the project's workspace
-  shows its open brief and anything waiting; a TTL clears it if `vbd` stops.
+  shows its open idea and anything waiting; a TTL clears it if `vbd` stops.
 
 The recording overlay (waveform, then transcription stages) appears when a take starts and closes
 itself when the transcript lands.
@@ -185,14 +208,17 @@ Operator words, 2026-10-25:
 - "I should be able to start a new agent for the project in herder with the current revision of
   the prompt, and I should be able to paste to the currently selected agent."
 - "OK to make changes, those are my personal set-up projects."
+- "this is a dictation app, to develop my idea using my microphone and AI in the format that I
+  want: Weakest part, Force, Preserves, Would reverse it, format."
+- "building a task prompt for the agent is the idea."
+- "Weakest part, force, smallest move come from cm-dr0 … Preserves, would reverse it come from
+  cm-e2y … Smallest move stays."
 
 ## Open questions
 
 1. celld target: the oracle-arm node (survives the desktop sleeping; pi-world's routes have no
    authentication on the tailnet) or `celld dev` on the desktop.
 2. Audio in git: Opus in a plain private repo, or git-lfs.
-3. The first rubric for each kind: drafted from `CLAUDE.md`, cm-v6i and cm-6nu for me to edit, or
-   written by me.
-4. Engine: parakeet-tdt-0.6b-v2 (current default) or whisper large-v3-turbo, measured on my own
+3. Engine: parakeet-tdt-0.6b-v2 (current default) or whisper large-v3-turbo, measured on my own
    takes.
-5. Whether a separate key also does ordinary dictation into any window while the model is loaded.
+4. Whether a separate key also does ordinary dictation into any window while the model is loaded.
