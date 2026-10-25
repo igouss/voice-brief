@@ -6977,6 +6977,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "vb-talk"
+version = "0.1.0"
+
+[[package]]
 name = "vb-thread"
 version = "0.1.0"
 dependencies = [
@@ -6997,6 +7001,9 @@ version = "0.1.0"
 dependencies = [
  "gpui-kit",
  "gpui-omarchy",
+ "serde",
+ "serde_json",
+ "vb-talk",
  "vb-thread",
 ]
 

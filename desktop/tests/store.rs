@@ -70,3 +70,10 @@ fn a_rescan_sees_a_thread_that_grew() {
     session(&root, "a", "100", DEAD_PID, &format!("{TAKE}\n{}", TAKE.replace("t1", "t2")));
     assert_eq!((before, store.scan(&root)[0].thread.takes.len()), (1, 2));
 }
+
+#[test]
+fn a_sessions_open_streams_live_beside_its_notes() {
+    let root: PathBuf = fresh_root("open-streams");
+    session(&root, "-home-you-repo", "100", DEAD_PID, TAKE);
+    assert_eq!(Store::default().scan(&root)[0].open_streams(), Some(root.join("-home-you-repo/open")));
+}

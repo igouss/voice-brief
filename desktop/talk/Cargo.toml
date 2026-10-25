@@ -1,0 +1,11 @@
+[package]
+name = "vb-talk"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Push-to-talk for the voice-brief window, as a pure state machine over Claude Code's tap-mode recorder"
+
+[dependencies]
+
+[lints]
+workspace = true

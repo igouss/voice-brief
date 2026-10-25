@@ -1,14 +1,16 @@
 use std::path::PathBuf;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, Context, Div, FocusHandle, FontWeight, Hsla, InteractiveElement as _, IntoElement, KeyDownEvent,
+    AnyElement, Context, Div, FocusHandle, FontWeight, Hsla, InteractiveElement as _, IntoElement, KeyDownEvent, KeyUpEvent,
     ParentElement, Render, Rems, SharedString, StatefulInteractiveElement as _, Styled, Window, div, px, rems,
 };
 use gpui_omarchy::{ActiveTheme, Theme, empty_state, keycap};
 use vb_thread::{Body, Claim, Field, Handoff, Placement, Proposal, Source, Take, Thread};
 use voice_brief_desktop::store::{Session, Store};
+use vb_talk::{Effect, Event, Mic, Talk, mic, step, target};
+use voice_brief_desktop::talk::{Talker, is_recording, settings_layers, voice_mode};
 
 const SPACE_XS: Rems = Rems(0.25);
 const SPACE_SM: Rems = Rems(0.5);
@@ -18,7 +20,9 @@ const SPACE_XL: Rems = Rems(1.5);
 const TEXT_CAPTION: Rems = Rems(0.6875);
 const TEXT_BODY: Rems = Rems(0.8125);
 const TEXT_TITLE: Rems = Rems(0.9375);
-const POLL: Duration = Duration::from_secs(1);
+const POLL: Duration = Duration::from_millis(250);
+const SETTLE: Duration = Duration::from_secs(1);
+const FOCUS_BLIP: Duration = Duration::from_millis(200);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Follow {
@@ -31,14 +35,36 @@ pub struct Desk {
     store: Store,
     sessions: Vec<Session>,
     follow: Follow,
+    home: Option<PathBuf>,
+    talker: Talker,
+    talk: Talk,
+    watched: Option<(u32, bool)>,
+    settling_since: Option<Instant>,
     pub focus: FocusHandle,
 }
 
 impl Desk {
-    pub fn new(root: Option<PathBuf>, cx: &mut Context<'_, Self>) -> Self {
-        let mut desk: Self = Self { root, store: Store::default(), sessions: Vec::new(), follow: Follow::Newest, focus: cx.focus_handle() };
+    pub fn new(root: Option<PathBuf>, home: Option<PathBuf>, window: &mut Window, cx: &mut Context<'_, Self>) -> Self {
+        let mut desk: Self = Self {
+            root,
+            store: Store::default(),
+            sessions: Vec::new(),
+            follow: Follow::Newest,
+            home,
+            talker: Talker::start(),
+            talk: Talk::Idle,
+            watched: None,
+            settling_since: None,
+            focus: cx.focus_handle(),
+        };
         desk.rescan();
         Self::start_polling(cx);
+        cx.observe_window_activation(window, |_, window, cx| {
+            if !window.is_window_active() {
+                Self::confirm_focus_lost(window, cx);
+            }
+        })
+        .detach();
         desk
     }
 
@@ -46,7 +72,25 @@ impl Desk {
         let fresh: Vec<Session> = self.root.as_deref().map(|r| self.store.scan(r)).unwrap_or_default();
         let changed: bool = fresh != self.sessions;
         self.sessions = fresh;
-        changed
+        let before: (Talk, Option<(u32, bool)>) = (self.talk, self.watched);
+        self.watch_streams();
+        if self.settling_since.is_some_and(|t| t.elapsed() >= SETTLE) {
+            self.fire(Event::Quiet);
+        }
+        changed || before != (self.talk, self.watched)
+    }
+
+    fn confirm_focus_lost(window: &Window, cx: &Context<'_, Self>) {
+        cx.spawn_in(window, async move |this, cx| {
+            cx.background_executor().timer(FOCUS_BLIP).await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                if !window.is_window_active() {
+                    this.fire(Event::FocusLost);
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
     }
 
     fn start_polling(cx: &Context<'_, Self>) {
@@ -81,9 +125,74 @@ impl Desk {
         self.follow = if next == 0 { Follow::Newest } else { Follow::Pinned(self.sessions[next].path.clone()) };
     }
 
+    fn fire(&mut self, event: Event) {
+        let (next, effect): (Talk, Option<Effect>) = step(self.talk, event);
+        if let Some(Effect::Tap(pid)) = effect {
+            self.talker.tap(pid);
+        }
+        self.settling_since = match (next, self.settling_since) {
+            (Talk::Settling { .. }, Some(since)) => Some(since),
+            (Talk::Settling { .. }, None) => Some(Instant::now()),
+            (Talk::Idle | Talk::Starting { .. } | Talk::Recording { .. } | Talk::Releasing { .. } | Talk::Stopping { .. }, _) => None,
+        };
+        self.talk = next;
+    }
+
+    fn watched_pid(&self) -> Option<u32> {
+        let held: Option<u32> = match self.talk {
+            Talk::Idle => None,
+            Talk::Starting { pid } | Talk::Recording { pid } | Talk::Releasing { pid } | Talk::Stopping { pid } | Talk::Settling { pid } => Some(pid),
+        };
+        held.or_else(|| self.shown_session().and_then(|s| s.thread.pid))
+    }
+
+    fn watch_streams(&mut self) {
+        let Some(pid) = self.watched_pid() else {
+            self.watched = None;
+            return;
+        };
+        let dir: Option<PathBuf> = self.sessions.iter().find(|s| s.thread.pid == Some(pid)).and_then(Session::open_streams);
+        let open: bool = dir.is_some_and(|d| is_recording(&d, pid));
+        match self.watched {
+            Some((seen, was_open)) if seen == pid && was_open != open => {
+                self.fire(if open { Event::StreamOpened { pid } } else { Event::StreamClosed { pid } });
+            }
+            Some(_) | None => {}
+        }
+        self.watched = Some((pid, open));
+    }
+
+    fn is_streaming(&self) -> bool {
+        let shown: Option<u32> = self.shown_session().and_then(|s| s.thread.pid);
+        self.watched.is_some_and(|(pid, open)| open && Some(pid) == shown)
+    }
+
+    fn shown_session(&self) -> Option<&Session> {
+        self.shown().map(|at| &self.sessions[at])
+    }
+
+    fn mic(&self) -> Mic {
+        let Some(session) = self.shown_session() else { return Mic::Ended };
+        let layers: Vec<Option<String>> = session.thread.project.as_deref().map(|p| settings_layers(std::path::Path::new(p), self.home.as_deref())).unwrap_or_default();
+        mic(session.is_alive(), voice_mode(&layers), self.talk, self.is_streaming())
+    }
+
+    fn press_space(&mut self) {
+        let pid: Option<u32> = self.shown_session().and_then(|s| s.thread.pid);
+        self.fire(Event::SpaceDown { target: target(pid, self.mic()) });
+    }
+
+    fn on_key_up(&mut self, event: &KeyUpEvent, cx: &mut Context<'_, Self>) {
+        if event.keystroke.key == "space" {
+            self.fire(Event::SpaceUp);
+            cx.notify();
+        }
+    }
+
     fn on_key(&mut self, event: &KeyDownEvent, cx: &mut Context<'_, Self>) {
         let key: &str = event.keystroke.key.as_str();
         match key {
+            "space" if !event.is_held => self.press_space(),
             "[" | "left" | "h" => self.step_session(true),
             "]" | "right" | "l" => self.step_session(false),
             "home" | "0" => self.follow = Follow::Newest,
@@ -140,7 +249,17 @@ fn caption(label: impl Into<SharedString>, t: &Theme) -> Div {
     div().text_size(TEXT_CAPTION).text_color(t.secondary).font_weight(FontWeight::MEDIUM).child(label.into())
 }
 
-fn header(session: &Session, at: usize, count: usize, t: &Theme) -> Div {
+fn mic_badge(m: Mic, t: &Theme) -> Option<Div> {
+    let (color, label): (Hsla, &str) = match m {
+        Mic::Recording => (t.danger, "recording · release Space to stop"),
+        Mic::Starting => (t.warning, "starting the microphone…"),
+        Mic::Stopping => (t.warning, "stopping…"),
+        Mic::Ready | Mic::Ended | Mic::NeedsTapMode => return None,
+    };
+    Some(div().flex().items_center().gap(SPACE_SM).text_color(color).font_weight(FontWeight::SEMIBOLD).child(dot(color)).child(label))
+}
+
+fn header(session: &Session, at: usize, count: usize, m: Mic, t: &Theme) -> Div {
     let (color, label) = stage_look(&stage(session), t);
     div()
         .flex()
@@ -152,6 +271,7 @@ fn header(session: &Session, at: usize, count: usize, t: &Theme) -> Div {
         .child(div().text_size(TEXT_TITLE).text_color(t.bright).font_weight(FontWeight::SEMIBOLD).child(session.project_name().to_owned()))
         .child(div().text_color(color).child(label))
         .child(div().flex_1())
+        .children(mic_badge(m, t))
         .child(div().text_color(t.secondary).child(ago(session.started)))
         .child(div().text_color(t.secondary).font_family(t.mono_font.clone()).child(format!("{} / {count}", at + 1)))
 }
@@ -265,7 +385,15 @@ fn hint(key: &'static str, label: &'static str, cx: &Context<'_, Desk>) -> Div {
     div().flex().items_center().gap(SPACE_XS).child(keycap(key, cx)).child(label)
 }
 
-fn footer(cx: &Context<'_, Desk>) -> Div {
+fn talk_hint(m: Mic, cx: &Context<'_, Desk>) -> Div {
+    match m {
+        Mic::Ready | Mic::Starting | Mic::Recording | Mic::Stopping => hint("Space", "hold to talk", cx),
+        Mic::NeedsTapMode => div().child("talking from here needs \"voice\": { \"mode\": \"tap\" } in the project's settings"),
+        Mic::Ended => div().child("session ended"),
+    }
+}
+
+fn footer(m: Mic, cx: &Context<'_, Desk>) -> Div {
     let t: &Theme = cx.omarchy();
     div()
         .flex()
@@ -277,6 +405,7 @@ fn footer(cx: &Context<'_, Desk>) -> Div {
         .border_color(t.border)
         .text_size(TEXT_CAPTION)
         .text_color(t.secondary)
+        .child(talk_hint(m, cx))
         .child(hint("F1", "hide", cx))
         .child(hint("[", "older", cx))
         .child(hint("]", "newer", cx))
@@ -288,6 +417,7 @@ fn footer(cx: &Context<'_, Desk>) -> Div {
 impl Render for Desk {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         let t: Theme = cx.omarchy().clone();
+        let m: Mic = self.mic();
         let body: AnyElement = match self.shown() {
             None => div()
                 .flex_1()
@@ -303,7 +433,7 @@ impl Render for Desk {
                     .flex()
                     .flex_col()
                     .min_h_0()
-                    .child(header(session, at, self.sessions.len(), &t))
+                    .child(header(session, at, self.sessions.len(), m, &t))
                     .child(
                         div()
                             .flex_1()
@@ -320,6 +450,7 @@ impl Render for Desk {
             .id("desk")
             .track_focus(&self.focus)
             .on_key_down(cx.listener(|this, e: &KeyDownEvent, _, cx| this.on_key(e, cx)))
+            .on_key_up(cx.listener(|this, e: &KeyUpEvent, _, cx| this.on_key_up(e, cx)))
             .size_full()
             .flex()
             .flex_col()
@@ -328,6 +459,6 @@ impl Render for Desk {
             .font_family(t.font.clone())
             .text_size(TEXT_BODY)
             .child(body)
-            .child(footer(cx))
+            .child(footer(m, cx))
     }
 }

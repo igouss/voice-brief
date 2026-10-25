@@ -6,6 +6,7 @@ use voice_brief_desktop::store::data_root;
 use crate::view::Desk;
 
 fn main() {
+    let home: Option<std::path::PathBuf> = std::env::var_os("HOME").map(std::path::PathBuf::from);
     let root = data_root(std::env::var("XDG_DATA_HOME").ok().as_deref(), std::env::var("HOME").ok().as_deref());
     gpui_kit::application().with_assets(gpui_kit::assets::Assets).run(move |cx| {
         gpui_omarchy::init(cx);
@@ -16,7 +17,7 @@ fn main() {
             window_min_size: Some(size(px(720.), px(420.))),
             ..Default::default()
         };
-        let window = cx.open_window(options, move |_, cx| cx.new(|cx| Desk::new(root.clone(), cx))).expect("open the voice-brief window");
+        let window = cx.open_window(options, move |window, cx| cx.new(|cx| Desk::new(root.clone(), home.clone(), window, cx))).expect("open the voice-brief window");
         let _ = window.update(cx, |desk, window, cx| window.focus(&desk.focus, cx));
         cx.activate(true);
     });

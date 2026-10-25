@@ -19,6 +19,10 @@ impl Session {
         project.rsplit('/').find(|s| !s.is_empty()).unwrap_or("unknown project")
     }
 
+    pub fn open_streams(&self) -> Option<PathBuf> {
+        self.path.ancestors().nth(3).map(|data| data.join("open"))
+    }
+
     pub fn is_alive(&self) -> bool {
         self.thread.pid.is_some_and(|pid| Path::new(&format!("/proc/{pid}")).exists())
     }
