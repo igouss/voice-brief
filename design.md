@@ -149,8 +149,9 @@ voxtype 1.1.1 has no idle timeout for its main model (*checked*: only
 So `vbd` controls the daemon:
 
 - Toggling the app on starts `voxtype.service` (installed, currently disabled).
-- Every take re-arms `systemd-run --user --on-active=600 --unit=voice-brief-unload systemctl
-  --user stop voxtype`. An explicit unload key stops it at once.
+- `vbd` owns the 10-minute deadline itself and stops voxtype only when no take is in progress.
+  An external `systemd-run` timer could fire `systemctl stop voxtype` just as a take starts.
+  An explicit unload key stops it at once.
 - Each take runs `voxtype record start --file=<take>.txt --no-osd`, so voxtype never types into
   the focused window, and `pw-record` alongside it for the audio, which the daemon does not keep.
   *Not yet checked:* two readers on one mic, and how well their start and stop line up.
