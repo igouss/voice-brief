@@ -1,273 +1,167 @@
 # voice-brief — design
 
-Develop an idea by voice and keyboard, with AI help, into a task prompt for an agent, and hand
-the prompt to an agent in the project you are working on. The problem, the prompt format and its
-lineage are in [`idea.md`](idea.md). Mock-ups: [`mockups/01-workspace.html`](mockups/01-workspace.html).
+Develop an idea by voice, with AI help, into a task prompt for an agent, and hand the prompt to
+an agent in the project you are working on. The problem, the prompt format and its lineage are in
+[`idea.md`](idea.md).
 
-Status: design. Nothing is built. Claims marked *checked* were run on this machine on
-2026-10-25; everything else is intended behaviour.
+Status: prototype. Claims marked *checked* were run on this machine on 2026-10-25; everything
+else is intended behaviour. The prototypes and what each showed are in
+[`proto/NOTES.md`](proto/NOTES.md); the drafting spike is in [`spike/`](spike/).
 
 ## Diagnosis (cm-dr0)
 
-Nothing exists, so the weakest part is the riskiest assumption: that the model can place my
-dictated words into the five fields (weakest part, force, smallest move, preserves, would
-reverse it) while
-separating what I said from what it adds, and that it asks instead of inventing a field I have not
-filled. The first move is a spike on dictations of real ideas, before any UI.
+The riskiest assumption is still that the model can place my dictated words into the five fields
+while separating what I said from what it adds, and ask instead of inventing a field I have not
+filled. The drafting spike measures it (`spike/`, bead `voice-brief-drafting-spike-ong`). The
+contract and validator are built; the checker and the full run are next.
+
+The design changed under it on 2026-10-25 (see Decisions). Speech-to-text and the interface no
+longer need building first: Claude Code's `/voice` transcribes, and a Claude Code mod is the
+interface.
+
+## Two modes
+
+| Mode | Capture | Interface | Status |
+|---|---|---|---|
+| **Claude Code** (now) | Claude Code's `/voice`, its audio and transcript saved by a local proxy | a Claude Code mod in a dedicated notes pane | prototype 3 |
+| **Local** (later) | voxtype on this CPU, `pw-record` for audio | to be decided; the desktop design below | not started |
 
 ## The unit: an idea is a task prompt
 
-| Field | What it says |
-|---|---|
-| Weakest part | Where the current whole is weakest: a specific component, file or step |
-| Force | The pressure that is unresolved there |
-| Smallest move | The one change that resolves the force and leaves the rest intact |
-| Preserves | What the change must leave intact |
-| Would reverse it | The observable result that would show the change was wrong |
+The five fields (Weakest part, Force, Smallest move, Preserves, Would reverse it) and what each
+must say are defined once, in `idea.md`'s format table (cm-eds). Weakest part, force and smallest
+move come from cm-dr0; preserves and would reverse it from cm-e2y.
 
-Weakest part, force and smallest move come from cm-dr0; preserves and would reverse it from
-cm-e2y. Words I have said that are not yet placed in a field sit in **Unsorted**. The prompt handed to
-an agent is the five fields plus my words verbatim with the date (cm-6nu).
-
-## Forces and the cuts they earn (cm-xrl)
-
-| Force | Cut |
-|---|---|
-| The mic and the speech model are local; the window can be hidden or closed while work continues | `vbd`, a background process on the desktop, separate from the `vb` TUI |
-| AI jobs are slow and must survive the desktop sleeping | AI runs on celld under pi-durable, not in `vbd` |
-| History, deletions and revisions must be inspectable and permanent | one append-only thread per idea is the record, carried by git; celld keeps no idea state |
-| The bar, Herdr and the TUI all show the same progress | one state file written by `vbd`, read by all three |
-
-No other boundary is earned yet. In particular there is no drafter port: Claude through celld is
-the only adapter.
-
-## Components
+## Claude Code mode
 
 ```
-desktop                                                        celld node
-┌─────────────── vbd (Rust, systemd user unit) ──────────────┐  HTTP+WS   ┌──────────────────────────┐
-│ capture: voxtype record --file + pw-record                 │ ─────────► │ IdeaCell, one per idea   │
-│ model lifetime: start voxtype, unload 10 min after a take  │  jobs with │   pi-durable harness     │
-│ project resolution: herdr session.snapshot + events        │ idempotency│ AccountCell (Claude      │
-│ job queue: submit, follow, retry; results to the idea      │    keys    │   OAuth, shared with     │
-│ git writer: ~/briefs                                       │ ◄───────── │   pi-world)              │
-│ state: $XDG_RUNTIME_DIR/voice-brief/state.json             │   events   └──────────────────────────┘
-│ herdr: sidebar metadata, notifications, agent hand-off     │
-└──────▲───────────────────────────────▲─────────────────────┘
-       │ unix socket                   │ watches state.json
-┌──────┴──────────┐            ┌───────┴────────────────────────┐
-│ vb (ratatui TUI)│            │ elendal.voice-brief bar widget │
-│ floating window │            │ (Omarchy shell plugin, QML)    │
-└─────────────────┘            └────────────────────────────────┘
+notes pane: proto/vb-claude.sh --brief                      vb-voice-proxy.service (systemd user)
+┌──────────────────────────────────────────────┐ HTTPS_PROXY ┌───────────────────────────────────┐
+│ claude  (VB_BRIEF=1, --plugin-dir voice-notes)│ ──────────► │ mitmdump 127.0.0.1:8897           │
+│  /voice dictation ── voice_stream WebSocket ──┼────────────►│  decrypts api.anthropic.com only  │──► Anthropic
+│                                              │             │  vb_mitm.py: per voice stream,    │
+│  voice-notes mod                             │             │  WAV + transcript, filed under    │
+│   polls its project's index.jsonl            │ ◄── reads ──│  the Git root of the client's     │
+│   pane: notes, Place / Accept / Hand off     │             │  claude process                   │
+│   place: spike/isolation/run.sh isolated     │             └───────────────────────────────────┘
+│          + spike/contract (Rust validator)   │
+└──────────────────────────────────────────────┘
 ```
 
-- **`vbd`** owns everything that must outlive the window. It starts on login (or on the first
-  toggle) and is the only writer of git and of the state file.
-- **`vb`** is a client of `vbd` over a unix socket. Closing or hiding it changes nothing in
-  progress.
-- **The domain** (the event types, the transition function that computes an idea's state,
-  rubric checks, assembling the prompt) is a framework-free module with no I/O (cm-hkg).
-- **celld** runs only the AI jobs. Each job carries everything it needs (the thread so far,
-  the transcripts it refers to, rubric, my instruction) and returns `ProposalMade` events, so the cell can be wiped without losing anything.
-  `AccountCell` is used for the second time here, which earns extracting it from pi-world into a
-  shared package.
+- **The proxy** runs as a systemd user service, `proto/vb-voice-proxy.service`, enabled at
+  login and restarted on failure. Closing any pane leaves it running (it used to run inside
+  whichever pane started it). It decrypts only `api.anthropic.com` and writes only voice streams.
+  The mitmproxy CA in `~/.mitmproxy/` is trusted only by sessions started through
+  `proto/vb-claude.sh`.
+- **A voice stream** is tied to the `claude` process that opened it: the proxy finds the
+  process from the client socket, then its working directory's Git root. A stream counts as a
+  note only when that process has `VB_BRIEF=1`. *Checked:* live streams carried the right pid; a
+  headless `claude -p` with the mod recorded its own pid correctly.
+- **Capture needs no Enter.** A dictation becomes a note as soon as Anthropic finishes
+  transcribing it. Enter sends it to the pane's agent as usual, and the note is marked sent.
+  *Checked* live: one note sent, one left unsent.
+- **The final transcript** is the last `TranscriptText` of each utterance, joined. The endpoint
+  and its message types (`TranscriptText`, `TranscriptEndpoint`, `CloseStream`) are
+  undocumented. A Claude Code update can change them, and then no dictation becomes a note. Each
+  index row records whether the stream closed cleanly on both sides; a verifier that alarms on a
+  run of unclean streams is still to build.
+- **The mod** (`proto/voice-notes/`) shows the notes and their audio, places them, shows each
+  claim as `said tN` or `added: reason` and each empty field with its question, and accepts,
+  rejects and hands off. Hand-off copies the prompt to the clipboard and writes `prompt.md`.
+  Commands: `/vb`, `/vb-place`, `/vb-accept`, `/vb-reject`, `/vb-handoff`, `/vb-delete tN`,
+  `/vb-fix tN <text>`.
+- **Placement** is the spike's path: an isolated `claude -p` that sees only the explicit prompt
+  (`spike/isolation/`), then the Rust validator (`spike/contract/`). That Rust core also builds
+  to WebAssembly with workers-rs (`spike/worker/`), for celld later.
+
+## Where the data lives: per Git project
+
+```
+~/.local/share/voice-brief/projects/<git root, / replaced by ->/
+  index.jsonl                 one row per voice stream: transcript, pid, notes pane or not, clean close
+  audio/<stream>.wav, .json   the exact frames sent (16 kHz mono linear16), and every server message
+  open/<stream>               a stream in progress
+  notes/<session start>/      one notes-pane session: thread.jsonl, each placement's files, prompt.md
+```
+
+A process outside any Git repo is filed under its working directory. *Assumption, flagged:* the
+location (`$XDG_DATA_HOME/voice-brief`) is mine, chosen so captures survive `~/tmp` clean-ups
+and stay out of git until audio in git is decided (Open questions). The central `~/briefs` repo
+from the earlier decision is not created yet.
 
 ## The record: one append-only thread per idea
 
-The conversation is the record. Each idea has one `thread.jsonl`, a list of typed events that is
-only ever appended to. Everything else about the idea (the five fields, the numbered revisions,
-where each sentence came from, what is waiting for me) is computed from it.
+Each idea has one `thread.jsonl`, a list of typed events that is only ever appended to.
+Everything else about the idea (the five fields, the numbered revisions, where each sentence came
+from, what is waiting for me) is computed from it. Prototype 3 keeps one thread per notes-pane
+session; ideas as a unit of their own come later.
 
 ```
-~/briefs/<idea>/thread.jsonl        the record: typed events, append-only
-~/briefs/<idea>/takes/0012.opus     audio (Opus: ~50 KB per 30 s instead of ~1 MB of WAV)
-~/briefs/<idea>/takes/0012.toml     transcript, started, duration, model
-~/briefs/<idea>/prompt.md           generated view of the five fields; never edited by hand
-~/briefs/rubrics/task-v1.toml       the rubric, generated from idea.md's format table
-```
-
-### Events
-
-```
-IdeaStarted         { title, project.path, project.remote, branch, herdr workspace label }
-TakeRecorded        { take, target: field | unsorted, mode: append | revise | answer, transcript_hash }
-TranscriptCorrected { take, transcript_hash, reason }
+IdeaStarted         { title, project.path, project.remote, branch }
+TakeRecorded        { take, stream, text, wav }
+TakeSent            { take }
+TranscriptCorrected { take, before, after }
 TakeDeleted         { take, reason }
-JobSubmitted        { job, base revision, transcripts in context }
-Typed               { field, at, text }
-ProposalMade        { kind: place | revise | review | question, claims: [said(take|typed, span) | added(reason)] }
+JobSubmitted        { job, base revision, takes in context }
+ProposalMade        { kind: place | revise | review | question, claims: [said(spans) | added(reason)], asked }
+JobFailed           { job, violations | error }
 Accepted            { proposal }
 Rejected            { proposal, reason }
-Asked               { field, question }
 Graded              { rubric_version, results }
-HandedOff           { target: new-agent | paste | clipboard | inbox, revision }
+HandedOff           { target: new-agent | paste | clipboard, revision }
 ClosedNoChange      { reason }
 ```
 
 - **Computing the state** is a pure transition `(state, event) -> (state, effects)`, matched
-  exhaustively on every event type (cm-prk), in the framework-free domain (cm-hkg). The prompt,
-  the history view and the AI's context are all outputs of it.
-- **Revisions** are numbered by counting the events that change a field (`Accepted`, `Typed`).
-  The history view is the thread itself, rendered.
-- **A sentence's source** is a take or a `Typed` event: what I type is my words too. Editing a
-  claim the AI tagged `added` makes the edited claim mine.
-- **Transcripts stay out of the thread**, so correcting or deleting one never rewrites it. The
-  thread holds a hash of each transcript version, so a replay can check it has the right file.
-  - **Correcting a transcript** (the speech-to-text got my words wrong, or I rephrase what I
-    meant): the corrected text replaces `takes/0012.toml`, and `TranscriptCorrected` records the
-    new hash and why. The old text stays in git.
-  - **Deleting a take** (the transcript is wrong and not worth fixing): `TakeDeleted` is
-    appended, the audio and transcript are removed with `git rm`, and the take leaves the AI's
-    context. It stays in git history.
-  - After either, every claim citing that take is re-checked: a `said` span that is no longer in
-    the transcript, or whose take is deleted, is marked unsupported and shown to me for review.
-    Nothing is silently re-tagged.
-- **git** carries the thread and the takes and is the history; a commit follows each event or
-  each accepted batch. Herdr ids (`w1`, `w1:p1`) are never stored: they do not survive a server
-  restart.
+  exhaustively (cm-prk), framework-free (cm-hkg).
+- **Transcripts stay correctable** without rewriting history: a correction appends
+  `TranscriptCorrected`; a deletion appends `TakeDeleted`. Every claim citing a corrected or
+  deleted take is re-checked and shown for review, never silently re-tagged (not built yet).
 - **Would reverse this:** any operation that can only be done by changing or removing an earlier
-  event. The experiment bead checks the mock-up scenarios for one.
+  event.
 
 ### Job protocol
 
-Model-checked in [`spec/tla/`](spec/tla/README.md); `spec/tla/check.sh` passes only if the
-design passes and each rule's removal is caught.
+Model-checked in [`spec/tla/`](spec/tla/README.md) for the celld design: `JobSubmitted` before
+sending, a job id created once, results deduplicated and acknowledged after the append, and accept
+only for a proposal computed against the current revision with all its takes live. Prototype 3
+runs placement synchronously inside the mod, so only the last rule applies there today.
 
-- `JobSubmitted` is appended before the job is sent to celld, and `vbd` re-sends every submitted
-  job without a result when it restarts.
-- celld creates a job id once; a repeated submit is ignored.
-- A result for a job that already has one is acknowledged, not appended; the ack is sent only
-  after the result is in the thread.
-- A proposal can be accepted only if it was computed against the current revision and every
-  transcript it used is still live; otherwise it is shown as stale.
-- `vbd` runs on one machine and is the only writer of `~/briefs`.
+## Grading
 
-## Speech-to-text and the model's lifetime
-
-**Changed on 2026-10-25** (see Decisions): inside Claude Code, ideas are dictated with its
-`/voice`; outside Claude Code, the app still records and transcribes locally with voxtype. What
-follows is the voxtype design, which now covers only that second path. Work concentrates on the Claude Code
-path for now; this one waits.
-What the switch changes, as far as checked:
-
-- Capture is a prompt in a Claude Code session started with `proto/vb-claude.sh`. That runs it
-  behind a local mitmproxy that decrypts only `api.anthropic.com`, and `proto/vb_mitm.py` saves
-  the `voice_stream` WebSocket. The `UserPromptSubmit` hook in `proto/vb_hook.py` calls a prompt
-  dictated when it contains the final transcript of an unused stream (*checked* on five live
-  streams). The endpoint and its message types (`TranscriptText`, `TranscriptEndpoint`,
-  `CloseStream`) are undocumented. If a Claude Code update changes them, every dictation will
-  silently count as typed, so the hook needs a verifier before it is trusted.
-- You review the text in Claude Code's input box before Enter, which serves as the approval step.
-- Claude Code keeps no audio. The proxy saves exactly the frames it sends (16 kHz mono linear16),
-  so takes can be played back.
-- Model residency and the 10-minute unload no longer apply; transcription runs in Anthropic's
-  cloud, not on this CPU.
-- The dictated prompt also reaches the agent in that session, which replies to it.
-- The session's working directory names the project, so Herdr resolution may not be needed for
-  capture.
-
-voxtype 1.1.1 has no idle timeout for its main model (*checked*: only
-`cold_model_timeout_secs`, for secondary models, and `on_demand_loading`, which unloads at once).
-So `vbd` controls the daemon:
-
-- Toggling the app on starts `voxtype.service` (installed, currently disabled).
-- `vbd` owns the 10-minute deadline itself and stops voxtype only when no take is in progress.
-  An external `systemd-run` timer could fire `systemctl stop voxtype` just as a take starts.
-  An explicit unload key stops it at once.
-- Each take runs `voxtype record start --file=<take>.txt --no-osd`, so voxtype never types into
-  the focused window, and `pw-record` alongside it for the audio, which the daemon does not keep.
-  *Not yet checked:* two readers on one mic, and how well their start and stop line up.
-- Stages come from voxtype's state file (`/run/user/1000/voxtype/state`: idle, recording,
-  transcribing) plus `vbd`'s own (saving audio, applying, committing). voxtype gives no
-  percentage; an estimate from recent takes on this machine is shown as an estimate.
-
-## Project resolution (Herdr)
-
-When a take starts, `vbd` reads `session.snapshot` and resolves the project in this order:
-
-1. the focused pane's git root;
-2. else the single git root among the panes of the focused workspace;
-3. else the workspace label matched against `~/Projects/*/<label>`;
-4. else the Unassigned inbox, with a picker.
-
-*Checked* on the live session: the focused workspace was `w9` "unikernel", the focused pane
-`w9:p8` sat in `/home/elendal`, and only `w9:p1` was in a repo (`~/Projects/mine/unikernel`).
-Rule 1 alone would have failed; rule 2 resolves it. Herdr's focus is its own, so it is still
-right while the voice-brief window or a browser has Hyprland's focus. An SSH pane reports its
-local directory, not the remote one.
-
-`events.subscribe` keeps the TUI header and the idea list filtered to the current project. A
-Herdr plugin action, "voice-brief: note here", passes the invocation context (`workspace_cwd`,
-`focused_pane_cwd`, `worktree`) directly.
-
-## Flows
-
-A take goes to the selected field, or to Unsorted.
-
-| Action | What happens | AI | Result |
-|---|---|---|---|
-| Append | Transcript inserted at the editor cursor in the selected field | no | Unsaved edit |
-| Edit | Built-in editor (`tui-textarea`) | no | Unsaved edit |
-| Save | Commit the edited text | no | Next revision |
-| Sort | Unsorted words → proposed placements into the fields, and a question for each field still empty | yes | Accept per placement |
-| Revise | New take + current field → a proposed revision of that field, shown as a diff | yes | Accept = next revision; a reject is a `Rejected` event with my reason |
-| AI review | A visible, editable review prompt (template plus my instruction, typed or spoken) → proposals | yes | Accept per proposal |
-| Grade | Rubric checklist per field: pass / partial / missing, one suggestion per gap | partly | Shown beside the prompt; re-graded after each revision |
-| Ask | The AI asks about the weakest field; I answer by voice or keyboard; the answer is a take | yes | Proposals for that field |
-| New idea, idea list | `n` starts an idea; the list shows past ideas with status, filtered to the current project | no | — |
-| Correct transcript | Fix what speech-to-text got wrong, or rephrase what I meant | no | `TranscriptCorrected`; claims citing the take are re-checked |
-| Delete take | `TakeDeleted`, then `git rm` the take | no | Gone from the tree and the AI context; kept in history; claims citing it marked unsupported |
-
-Every proposal is tagged `said` (with the transcript it comes from) or `added` (no transcript
-supports it). The AI never fills an empty field with a guess: it asks. Nothing is written without
-my accept.
-
-**Grading follows cm-8gv.** Code checks what code can: every field is non-empty, and my words
-are quoted verbatim with the date. The model judges the rest against `rubrics/task-v1.toml`,
-which it cannot change:
+Code checks what code can (the validator in `spike/contract/`). The model judges the rest
+against the definitions in `idea.md`:
 
 | Field | Passes when |
 |---|---|
 | Weakest part | someone else could open the place named and check it; it cites evidence (churn, co-change, bug cluster, braid) |
-| Force | two pressures in conflict, at least one citing something observed (a bug, a build artifact, a change that hurt); not a symptom, not a guess |
+| Force | two pressures in conflict, at least one citing something observed; not a symptom, not a guess |
 | Smallest move | follows from the force: swapping in another pattern would break the text; fits in one commit |
 | Preserves | says what must stay intact |
 | Would reverse it | an observable condition: something that can be run or watched for (cm-gi3) |
-| all | the text would change if the evidence changed |
 
-The definitions are in `idea.md`'s format table; the rubric file is generated from it, not
-written separately (cm-eds). "Nothing is weak; no structural change" is an outcome the app
-accepts; *assumption, flagged:* the idea is then closed, not handed off.
+"Nothing is weak; no structural change" is an outcome the app accepts; *assumption, flagged:*
+the idea is then closed, not handed off.
 
-## Hand-off
+## Local mode (later)
 
-The current revision of the prompt goes to an agent in two ways:
+The earlier desktop design, kept for this mode:
 
-- **New agent:** in the idea's project workspace, `pane split --cwd <project> --no-focus`, then
-  `agent start idea-<id> --kind claude|pi|codex`, then `agent prompt`. The agent's state
-  (working, blocked, done) is followed through `events.subscribe` and shown on the idea.
-- **Paste into the selected agent:** the target defaults to Herdr's focused agent and can be
-  changed from a list of agents in the project's workspace. *Assumption, to confirm:* the text is
-  pasted without pressing Enter, so I submit it myself. *Not yet checked:* that
-  `pane send-text` uses bracketed paste for multi-line text.
+- A background process, `vbd`, owns capture (`voxtype record start --file=<take>.txt --no-osd`
+  with `pw-record` alongside for audio), keeps the model loaded for 10 minutes after a take (it
+  owns that deadline itself; voxtype has no idle unload for its main model, *checked*), and is
+  the only writer of the record.
+- AI jobs run on celld under pi-durable with the job protocol above.
+- Project resolution from Herdr's `session.snapshot`: the focused pane's Git root; else the single
+  Git root among the focused workspace's panes; else the workspace label matched to
+  `~/Projects/*/<label>`; else Unassigned. *Checked* on the live session (rule 2 was needed).
+- Progress outside the window: an Omarchy bar widget, one notification when work is done, Herdr
+  sidebar metadata.
+- The mock-ups in `mockups/` show this design and predate both the five fields and the Claude
+  Code mode.
 
-Also: copy to the clipboard, or save to `inbox/`.
-
-## Seeing progress while hidden
-
-Hyprland has no minimize: hiding (`q`) moves the window to a special workspace and the toggle key
-brings it back. `vbd` keeps working either way. Progress shows in three places, all from
-`state.json`:
-
-- **Bar widget** `elendal.voice-brief`, an Omarchy shell bar-widget plugin built like
-  `elendal.audio`, placed next to `omarchy.agents`: model unloaded / loaded with countdown /
-  recording to a project / working with the stage / done with a count.
-- **Notification** once, when all work for an idea is done.
-- **Herdr sidebar:** `workspace report-metadata --source voice-brief` on the project's workspace
-  shows its open idea and anything waiting; a TTL clears it if `vbd` stops.
-
-The recording overlay (waveform, then transcription stages) appears when a take starts and closes
-itself when the transcript lands.
+Prototype 1 (in git history, `proto/vb_proto.py`) showed local transcription loses jargon
+("reqwest", `~/.claude`) and needs a review step before a take enters the record.
 
 ## Decisions
 
@@ -294,6 +188,8 @@ Operator words, 2026-10-25:
 - "OK for one thread.jsonl per idea." "Regarding deletion, sometimes the idea needs a rephrasing,
   or to be deleted because transcipt is wrong."
 - "one machine only, install tools locally" "ok model it now"
+- "Yeah, transcription is weak, I would need to view and approve it before it enters into the
+  system."
 - "I think this workflow actually might work well. We don't need the dictation up from the vox we
   can install, not install, just use the dictation that the Claude Code provides. It seems to be
   pretty accurate and fast."
@@ -302,12 +198,29 @@ Operator words, 2026-10-25:
   Then, asked whether to record it: "yes, add it to design.md".
 - "to be a dual mode application. It should support Claude Code and it should support recording
   when it's running outside the Claude Code. For now, concentrate on the Claude Code version."
+- "it seems stupid to have a rolling buffer when we could just intercept the web socket and
+  capture the exact data that we capture."
+- "TypeScript is fine but I don't like it as a language, WASM is fine too … Maybe we can do rust
+  to wasm?" "use the standard workers-rs toolchain"
+- "I don't want to send the dictated text to the model when I don't want to, and if I do want to
+  send the dictated text, I will just press enter … For now, a preferred mode where I just open
+  Claude and use its voice … for this application to populate voice notes."
+- "Maybe we could just use Claude mods and this void capture and processing, and we just do it
+  from the inside Claude code. Maybe we don't need to write an application right now. That would
+  be a follow-up possibility. Let's concentrate right now on a prototype that uses Claude code
+  mods and brings some kind of user interface for the application that we're building."
+- "The voice proxy runs inside whichever pane first started it, so closing that pane can cut
+  every proxied Claude session off at once. Fix that please. And let's update the documents to
+  reflect this pivot. Let's organize our voice notes and everything else that we generate so that
+  it's per Git project, so that we could safely run proxy the Claude code."
 
 ## Open questions
 
 1. celld target: the oracle-arm node (survives the desktop sleeping; pi-world's routes have no
    authentication on the tailnet) or `celld dev` on the desktop.
-2. Audio in git: the proxy now captures every dictation's audio, which is kept untracked for now
-   ("let's not track it in git yet"). Opus in the briefs repo, git-lfs, or outside git?
-3. Should the dictating session be a dedicated one, so its agent's replies don't mix with project
-   work? Or should the hook stop dictated prompts from reaching the agent at all?
+2. Audio in git: the proxy captures every dictation's audio, kept untracked for now ("let's not
+   track it in git yet"). Opus in the briefs repo, git-lfs, or outside git?
+3. Where the record lives for good: the central `~/briefs` repo, per-project data as now, or
+   both (data per project, briefs collected centrally)?
+4. Should a question that hints at its own answer refute the spike's hypothesis, or only be
+   reported?

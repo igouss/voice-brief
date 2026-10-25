@@ -16,10 +16,13 @@ session and the agent rewrites it. That works, but:
 
 ## What it does
 
-A small Omarchy desktop app, bound to a key. I talk; my words are recorded and transcribed
-locally; AI helps me shape them into a task prompt in a fixed format; I revise by voice and
-keyboard until the prompt says what I mean; then I hand it to an agent in the project I am
-working on (Herdr).
+I talk; my words are recorded and transcribed; AI helps me shape them into a task prompt in a
+fixed format; I revise by voice and keyboard until the prompt says what I mean; then I hand it to
+an agent in the project I am working on.
+
+It runs in two modes. In the Claude Code mode, built first, I dictate with Claude Code's `/voice`
+in a notes pane, and a Claude Code mod is the interface. In the local mode, later, voxtype
+transcribes on this machine. The design is in [`design.md`](design.md).
 
 ## The format
 
@@ -72,16 +75,18 @@ agent's paraphrase replacing it.
 
 ## Constraints
 
-- **CPU-only.** i7-10700K, no usable GPU compute. Speech-to-text on CPU is fine for short clips.
+- **CPU-only.** i7-10700K, no usable GPU compute. Speech-to-text on CPU is fine for short clips
+  but loses jargon (local mode).
 - **Local generation is too slow for the interactive path** (`voice-command-bar` measured about
-  3.7 tok/s). AI work runs on Claude, through celld and pi-durable.
-- **Omarchy / Hyprland.** Launch from a keybinding, float as a small window, follow the theme.
+  3.7 tok/s). AI work runs on Claude.
+- **Omarchy / Hyprland, Herdr.** The work happens in terminal panes; the notes pane is one of
+  them.
 
 ## Prior work to reuse, not rebuild
 
-- `voxtype`: push-to-talk capture and transcription, with `record` for external control.
+- Claude Code: `/voice` dictation, and mods for the interface.
+- `voxtype`: push-to-talk capture and transcription, with `record` for external control (local
+  mode).
 - `~/Projects/mine/voice-command-bar`: findings on local latency.
 - `~/Projects/mine/voice-llm`: streaming TTS, which could read a prompt back to me.
 - `pi-world`: celld and pi-durable in practice, including Claude through the subscription.
-
-The design is in [`design.md`](design.md).

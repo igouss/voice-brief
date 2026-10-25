@@ -1,143 +1,96 @@
-# PROTOTYPE — delete when answered
+# Prototypes
 
-`vb_proto.py` is throwaway. Run: `python3 proto/vb_proto.py`.
+Throwaway code that answers questions. What is current:
 
-## Question
+| Piece | Run | What it is |
+|---|---|---|
+| `vb-voice-proxy.service` | `systemctl --user status vb-voice-proxy` | mitmdump on 127.0.0.1:8897 with `vb_mitm.py`, a systemd user service (symlinked into `~/.config/systemd/user/`) |
+| `vb-claude.sh` | `proto/vb-claude.sh --brief` | starts the service if needed, then `claude` through it; `--brief` makes the notes pane |
+| `voice-notes/` | loaded by `--brief` | the Claude Code mod: notes, placement, hand-off |
 
-Do my dictated words land in the five fields, quoted, with a question where I said nothing? And
-does the loop of saying something, seeing it placed, and correcting it feel right?
+Captures and notes live per Git project under `~/.local/share/voice-brief/projects/` (`design.md`,
+"Where the data lives").
 
-## What it is
+Retired, in git history: `vb_proto.py` (prototype 1, local voxtype), `vb_hook.py` (prompt hook),
+`vb_brief.py` (prototype 2, terminal app). The sections below keep what each showed.
 
-A stdlib Python REPL. It uses `pw-record` (16 kHz mono) and `voxtype transcribe` (parakeet,
-loaded on each call). Then `claude -p` places the words into the five fields. The field
-definitions are read from `idea.md` at runtime. The thread is kept in memory and written to the
-temp directory when you quit.
+## Prototype 1: local capture (retired)
 
-Not in it: ratatui, `vbd`, celld, Herdr, git, model residency, or the re-check of claims that cite
-a deleted take.
+Question: do my dictated words land in the five fields, quoted, with a question where I said
+nothing, and does the say/see/correct loop feel right?
 
-## Seen on the first run (synthetic speech, 2026-10-25)
+A stdlib Python REPL: `pw-record`, `voxtype transcribe`, then `claude -p` with the definitions
+read from `idea.md`.
 
-- Every field I filled came back as `said t1` with exact spans. "Would reverse it" came back empty
-  with a question.
-- The question offered example answers ("for example, the desktop build still pulls in the HTTP
-  client"). That is the AI suggesting content in the field it must not guess.
-- voxtype heard "reqwest" as "request", and the AI carried it into Force. So correcting a
-  transcript matters from the first take.
-- Deleting the take after accepting left the fields built from it unchanged. The design's
-  re-check is needed.
-- Timing: transcription about 3.7 s, of which 2.4 s is loading the model; placement about 14 s.
+- Every field I filled came back as `said` with exact spans; an unsaid field came back empty with
+  a question.
+- Questions offered example answers in both runs ("for example, the desktop build still pulls in
+  the HTTP client"). The contract prompt in `spike/contract/prompt/system.md` now forbids that.
+- **Local speech-to-text loses the jargon:** "reqwest" became "request", `~/.claude` became
+  "clawed", "would reverse it" became "would reserve it".
+- Deleting a take after accepting left the fields built from it unchanged: the re-check in the
+  design is needed.
+- Speaking the field names as markers is a natural way to dictate.
+- Timing: 50 s of audio took 5.5 s to transcribe, model load included; placement took 7 to 14 s.
+- **Verdict:** transcript review comes first. Iouri, 2026-10-25: "Yeah, transcription is weak, I
+  would need to view and approve it before it enters into the system."
 
-## Seen on the first live run (Iouri's mic, 2026-10-25)
+## Telling dictated prompts from typed ones
 
-Takes: t1 a mic test, t2 "Yeah.", t3 an empty take (a mistyped `f` path recorded silently, now
-refused), t4 a real idea about 50 s long.
+Claude Code records dictated prompts as typed in the hook input, `history.jsonl` and the session
+log.
 
-- **The take names the fields as markers** ("Weakest part … Force … smallest move … preserves …
-  would reverse it"). It's a natural way to dictate, and the placement can use it.
-- **Speech-to-text loses the jargon.** "clawed" is probably `~/.claude`; "overwriting boosters
-  work" is probably "overwriting loses work"; "would reserve it" is "would reverse it"; "DevBox is
-  trapped" is unclear. Parakeet has no vocabulary for paths and project names.
-- **The AI didn't guess "clawed"; it asked which file.** That keeps fidelity but costs a round,
-  where correcting the transcript would have fixed it in one.
-- **A suggestion inside the question happened twice out of two runs.** The Force question offered
-  "for example, Fedora's copy has to stay immutable, but it also has to match the DevBox copy";
-  the reversal question suggested its own answer.
-- On the mic-test takes, it asked all five questions and filled nothing. Correct.
-- Placement took 7 to 13 s; transcribing 50 s of audio took 5.5 s, model load included.
-- The thread didn't record the proposal's field texts, so a run can't be reviewed afterwards.
-  Fixed: `ProposalMade` and `TakeRecorded` now carry them.
-
-## Verdict
-
-- Transcript review comes first. Iouri, 2026-10-25: "Yeah, transcription is weak, I would need to
-  view and approve it before it enters into the system." The prototype now shows each transcript
-  and offers approve, edit or discard. Only an approved text is appended as `TakeRecorded`, which
-  keeps both what voxtype heard and the approved text.
-- (placement fidelity: still to judge on a live take)
-
-## Claude Code hook
-
-Only prompts dictated with Claude Code's `/voice` go into the idea; typed prompts don't.
-
-- Claude Code records dictated prompts as typed in the hook input, `history.jsonl` and the session
-  log.
-- The first detector read Claude Code's debug log (`DEBUG=1`, line
-  `[voice] Injecting transcript`). It was replaced on 2026-10-25 by the proxy (next section).
-- `proto/vb_hook.py` runs on every prompt submitted in this project (from
-  `.claude/settings.local.json`, gitignored). A prompt counts as dictated when it contains the
-  final transcript of a voice stream that ended after this session's previous prompt and that no
-  earlier prompt used. Case and whitespace don't matter.
-  - `edited` means the prompt holds more than the dictated text.
-  - A prompt that matches nothing is typed. That covers prompts Claude Code injects, such as
-    task notifications, which the debug-log detector had counted as dictated.
-- Dictated prompts go to `~/tmp/vb-proto-inbox.jsonl` and still reach Claude. Each decision is
-  logged to `~/tmp/vb-proto-hook.jsonl`.
-- The prototype drains the inbox before each screen, recording a `TakeRecorded` with
-  `source: claude-code-voice`.
-- Replayed on the five streams captured live on 2026-10-25:
-  - two dictations in one prompt matched, unedited;
-  - a dictation with a typed fix ("wgar") matched as edited;
-  - the same stream was not used twice;
+- First detector: Claude Code's debug log (`DEBUG=1`, line `[voice] Injecting transcript`).
+- Second: a prompt is dictated when it contains the final transcript of an unused voice stream
+  from the proxy. Replayed on five live streams:
+  - two dictations in one prompt matched;
+  - a dictation with a typed fix matched as edited;
   - a typed prompt and a task notification stayed typed.
+- Now: capture doesn't depend on the prompt at all (prototype 3). The mod marks a note sent when
+  a submitted prompt contains its text.
 
 ## Voice audio from Claude Code
 
-Claude Code keeps no audio, and its stream-URL override (`VOICE_STREAM_BASE_URL`) is compiled
-out. `proto/vb-claude.sh` starts `mitmdump` on 127.0.0.1:8899 if it isn't already running, then
-runs `claude` with `HTTPS_PROXY` and the mitmproxy CA.
+Claude Code keeps no audio, and its stream-URL override (`VOICE_STREAM_BASE_URL`) is compiled out.
+The proxy decrypts only `api.anthropic.com` and saves only the `voice_stream` WebSocket.
 
-- Only `api.anthropic.com` is decrypted.
-- `proto/vb_mitm.py` saves only the `voice_stream` WebSocket. Each stream gets a WAV of the
-  client's binary frames (16 kHz mono linear16), a JSON file with the server's transcript
-  messages, and a line in `~/tmp/vb-proto-audio/index.jsonl`. Nothing else is written.
-- Each stream's index line holds its final transcript: the last `TranscriptText` of each
-  utterance, joined. It also says whether the client sent `CloseStream` and the server sent
-  `TranscriptEndpoint`; `ok` means both happened.
-- Until the debug log was dropped, the hook also compared captured bytes with the debug log's
-  chunk sizes. They were equal for every stream it checked.
-- On 12 dictations, the bytes sent were 0.92 to 0.99 of the span between "Starting recording
-  session" and "Recording stopped".
-- Checked:
-  - `claude -p` works through the proxy;
-  - the hook handled the exact, mismatch, missing-capture and typed cases on synthetic logs.
-- Seen live on 2026-10-25: one prompt made of two dictations went through the proxy. Both streams
-  were captured exactly: 241,604 bytes in 172 chunks, and 509,146 bytes in 368 chunks, equal to
-  the debug log's sums. Running voxtype on the saved WAVs gave the spoken words back.
-- While `vb-claude.sh` is in use, the proxy decrypts all of that session's traffic with
+- Each stream gets:
+  - a WAV of the client's binary frames (16 kHz mono linear16);
+  - a JSON file with every server message;
+  - a row in its project's `index.jsonl`: final transcript, client pid, project, notes pane or
+    not, clean close on both sides.
+- The final transcript is the last `TranscriptText` of each utterance, joined.
+- The client pid comes from the connection's socket inode in `/proc`. The project is the Git root
+  of that process's working directory, or the directory itself outside a repo.
+- Seen live, 2026-10-25:
+  - **Captured bytes equal the sent bytes.** While the debug log was on, two streams' captured
+    bytes equalled the logged chunk sums exactly: 241,604 bytes in 172 chunks, and 509,146 bytes
+    in 368 chunks.
+  - voxtype transcribed the saved WAVs back to the spoken words.
+  - Across 12 dictations, the bytes sent were 0.92 to 0.99 of the time between "Starting
+    recording session" and "Recording stopped".
+- While a session runs through the proxy, the proxy decrypts all of that session's traffic with
   Anthropic, including the OAuth token. It writes none of it to disk.
+- The proxy first ran inside the pane that started it, so closing that pane cut every proxied
+  session off. Since 2026-10-25 it is `vb-voice-proxy.service`. *Checked:* `claude -p` works
+  through it, and its argv carries the host pattern intact.
 
-## Prototype 2: the Claude Code loop
+## Prototype 2: the Claude Code loop in a terminal app (retired)
 
-`vb_brief.py` answers a second question: does the loop of dictating in a notes pane, seeing the
-idea placed, answering by voice, accepting and handing off feel right?
+`vb_brief.py` read an inbox the proxy and the hook wrote, and placed, accepted and handed off from
+a terminal screen.
+
+- The notes pane (`--brief`, `VB_BRIEF=1`) captured dictations as soon as the stream ended; Enter
+  was optional.
+- Live, 2026-10-25: one note sent, one not sent, both captured.
+- Its placement of four chatter takes left all five fields empty, each with a question that
+  suggested no answer.
 
 Operator, 2026-10-25: "I don't want to send the dictated text to the model when I don't want to,
 and if I do want to send the dictated text, I will just press enter … For now, a preferred mode
 where I just open Claude and use its voice … for this application to populate voice notes."
 
-- `proto/vb-claude.sh --brief` starts the notes pane: a Claude Code session with `VB_BRIEF=1`.
-- When a voice stream from that pane ends, `vb_mitm.py` appends it to the inbox. The proxy finds
-  the client's process from its socket and checks its environment for `VB_BRIEF=1`. Each entry
-  holds the transcript and the WAV. No Enter is needed.
-- Enter is optional and sends the text to that pane's agent as usual. The hook (only with
-  `VB_BRIEF`) then appends a `sent` entry naming the streams the prompt contains, and the app
-  marks those takes "sent to Claude".
-- Dictations in other sessions are not captured.
-- `python3 proto/vb_brief.py` drains the inbox every second.
-  - `p` places every live take through `spike/isolation/run.sh isolated` and the Rust validator.
-  - Each claim shows `said tN` or `ADDED: reason`; each empty field shows its question.
-  - `a` accepts. `h` writes `prompt.md` and copies it to the clipboard.
-  - `e` corrects a take's text, `d` deletes a take, `l` plays its audio.
-- Checked 2026-10-25:
-  - piped input: place (7.6 s), accept and hand-off;
-  - the notes-pane check: true for the notes-pane process, false for this session;
-  - hook plus app: a dictated entry and a sent entry made one take marked "sent to Claude".
-
-  The live proxy reloaded the addon itself, and new streams carry the client pid.
-
-## Prototype 3: everything inside Claude Code (a mod)
+## Prototype 3: everything inside Claude Code (current)
 
 Operator, 2026-10-25: "Maybe we could just use Claude mods and this void capture and processing,
 and we just do it from the inside Claude code. Maybe we don't need to write an application right
@@ -146,23 +99,26 @@ now."
 `proto/voice-notes/` is a Claude Code mod. `vb-claude.sh --brief` loads it with `--plugin-dir`,
 and it acts only where `VB_BRIEF=1`.
 
-- On start it finds its own `claude` process, then reads `~/tmp/vb-proto-audio/index.jsonl` every
-  second for streams of that process since the session began. Each becomes a note: a toast, a
-  status line, and a "captured" band above the prompt.
-- The `Voice notes` pane lists the notes (↗ marks the ones sent to Claude, × deletes one). It has
-  buttons Place, Accept, Reject and Hand off, and shows the proposal or the accepted revision
-  field by field, each claim with `said tN` or `added: reason` and each empty field with its
-  question.
+- On start it finds its own `claude` process and its project's Git root. Every second it reads
+  that project's `index.jsonl` for streams of its process since the session began.
+- Each new stream becomes a note: a toast, a status line, and a "captured" band above the prompt.
+- **The `Voice notes` pane:**
+  - lists the notes; ↗ marks the ones sent to Claude, and × deletes one;
+  - has Place, Accept, Reject and Hand off buttons;
+  - shows the proposal or the accepted revision field by field: each claim with `said tN` or
+    `added: reason`, and each empty field with its question.
 - Commands: `/vb`, `/vb-place`, `/vb-accept`, `/vb-reject`, `/vb-handoff`, `/vb-delete tN`,
   `/vb-fix tN <text>`.
-- Placement is the same as prototype 2: `spike/isolation/run.sh isolated` and the Rust validator.
-  Hand-off copies the prompt to the clipboard (`$.ui.copy`) and writes `prompt.md`.
-- Every event goes to `~/tmp/vb-notes/<start>/thread.jsonl`.
+- **Placement** runs `spike/isolation/run.sh isolated` and the Rust validator, found beside the
+  mod, so a notes pane works in any repository.
+- **Hand-off** copies the prompt to the clipboard (`$.ui.copy`) and writes `prompt.md`.
+- Every event goes to `notes/<session start>/thread.jsonl` in the project's data folder.
 - Checked 2026-10-25:
-  - `claude plugin validate` passes;
-  - `tsc` against this build's API is clean;
+  - `claude plugin validate` passes, and `tsc` against this build's API is clean;
   - `claude plugin test`: a stream from this process becomes `t1`, and one from another process
     stays out. The first test was seen red with the pid changed.
-  - A headless `claude -p` with the mod recorded its own pid correctly (1022063, the launched
-    process), registered the seven commands, and placed the pane (no surface under `-p`).
+  - Headless `claude -p` with the mod:
+    - from this repo, it recorded its own pid (the launched process) and the project, and
+      registered the seven commands;
+    - from `/tmp`, it filed under `-tmp`.
 - Not yet run in the operator's notes pane.
