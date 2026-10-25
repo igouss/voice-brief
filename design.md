@@ -155,11 +155,16 @@ which it cannot change:
 
 | Field | Passes when |
 |---|---|
-| Weakest part | names a specific place (component, file, step), not "the architecture" |
-| Force | names a pressure in conflict, not "apply pattern X" (cm-dr0) |
-| Smallest move | one move that resolves that force and leaves the rest intact (cm-dr0) |
+| Weakest part | someone else could open the place named and check it; it cites evidence (churn, co-change, bug cluster, braid) |
+| Force | two pressures in conflict, at least one citing something observed (a bug, a build artifact, a change that hurt); not a symptom, not a guess |
+| Smallest move | follows from the force: swapping in another pattern would break the text; fits in one commit |
 | Preserves | says what must stay intact |
 | Would reverse it | an observable condition: something that can be run or watched for (cm-gi3) |
+| all | the text would change if the evidence changed |
+
+The definitions are in `idea.md`'s format table; the rubric file is generated from it, not
+written separately (cm-eds). "Nothing is weak; no structural change" is an outcome the app
+accepts: the idea is then closed, not handed off.
 
 ## Hand-off
 

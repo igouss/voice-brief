@@ -27,16 +27,23 @@ A task prompt states the change as a transformation, not as a plan:
 
 | Field | What it says |
 |---|---|
-| **Weakest part** | Where the current whole is weakest: a specific component, file or step |
-| **Force** | The pressure that is unresolved there |
-| **Smallest move** | The one change that resolves the force and leaves the rest intact |
-| **Preserves** | What the change must leave intact |
-| **Would reverse it** | The observable result that would show the change was wrong and should be undone |
+| **Weakest part** | One place in the system as it stands, specific enough that someone else could open it and check: a module, a crate edge, a file pair that always changes together. Found from evidence: files that churn or change together, bugs that cluster, a part you can't touch without understanding the whole (cm-igd). Not "the architecture", not "we lack a port layer". |
+| **Force** | Two pressures the current structure can't both satisfy, at least one of them already observed: a bug, a build artifact, a change that hurt. A guess about the future is not a force (cm-xrl); a symptom ("this file is too big") is not either, the force is what it braids. |
+| **Smallest move** | The least change that resolves that force and leaves everything else working. It follows from the force: if another pattern could be swapped in and the text would still read fine, it is not a diagnosis. It fits in one commit (cm-uom). |
+| **Preserves** | What the move must leave intact |
+| **Would reverse it** | The observable result that would show the move was wrong and should be undone |
+
+Not a diagnosis: "apply pattern X" (a move looking for a force), a list of everything wrong (only
+the one weakest part), a picture of the end state (a master plan). "Nothing is weak; no structural
+change" is a valid result, and often the right one.
 
 The fields come from two of my rules: weakest part, force and smallest move from cm-dr0 ("the
 weakest part, the unresolved force, the smallest move"); preserves and would reverse it from
 cm-e2y ("weakest part at the time, forces in conflict, move taken, what it preserved, what would
 reverse it").
+
+These definitions are the single source: the grade, the AI's questions and the spike all use
+them (cm-eds).
 
 Each field is filled from my own words. Where I have not said something, the AI asks; it does not
 fill the field with a guess. "Would reverse it" is the field most likely to be missing and the one
