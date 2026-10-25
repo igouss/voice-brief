@@ -56,3 +56,23 @@ refused), t4 a real idea about 50 s long.
   and offers approve, edit or discard. Only an approved text is appended as `TakeRecorded`, which
   keeps both what voxtype heard and the approved text.
 - (placement fidelity: still to judge on a live take)
+
+## Claude Code hook
+
+Only prompts dictated with Claude Code's `/voice` go into the idea; typed prompts don't.
+
+- Claude Code doesn't mark dictated prompts. The hook input, `history.jsonl` and the session log
+  all record them as typed (`promptSource: "typed"`).
+- The only local signal is Claude Code's debug log. When a dictation is put into the input box it
+  writes `[voice] Injecting transcript (N chars)`.
+- No `settings.json` key turns that log on; an `env` block in settings is read too late. It has
+  to be set in the environment before Claude Code starts: `DEBUG=1` writes
+  `~/.claude/debug/<session_id>.txt`.
+- `proto/vb_hook.py` runs on every prompt submitted in this project (from
+  `.claude/settings.local.json`, gitignored). It checks whether that session's debug log gained a
+  `[voice] Injecting transcript` line since the last submit. If so, it copies the prompt to
+  `~/tmp/vb-proto-inbox.jsonl`; the prompt still goes to Claude.
+- Each decision is logged to `~/tmp/vb-proto-hook.jsonl`.
+- The prototype drains the inbox before each screen, recording a `TakeRecorded` with
+  `source: claude-code-voice`.
+- Seen live on 2026-10-25: a typed prompt was classified "typed"; a dictated one was "dictated", and the logged character count (95) matched the prompt. A dictation that you then edit by keyboard still counts as dictated.
