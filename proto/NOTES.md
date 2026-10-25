@@ -107,3 +107,19 @@ runs `claude` with `HTTPS_PROXY` and the mitmproxy CA.
   the debug log's sums. Running voxtype on the saved WAVs gave the spoken words back.
 - While `vb-claude.sh` is in use, the proxy decrypts all of that session's traffic with
   Anthropic, including the OAuth token. It writes none of it to disk.
+
+## Prototype 2: the Claude Code loop
+
+`vb_brief.py` answers a second question: does the loop of dictating in a brief pane, seeing the
+idea placed, answering by voice, accepting and handing off feel right?
+
+- `proto/vb-claude.sh --brief` starts a Claude Code session whose dictated prompts go into the
+  idea only (the hook blocks them from the agent). Typed prompts still reach the agent.
+- `python3 proto/vb_brief.py` in another pane picks up each dictation within a second.
+  - `p` places every live take through `spike/isolation/run.sh isolated` and the Rust validator.
+  - Each claim shows `said tN` or `ADDED: reason`; each empty field shows its question.
+  - Answering is dictating again, then `p`.
+  - `a` accepts. `h` writes `prompt.md` and copies it to the clipboard.
+  - `e` corrects a take's text, `d` deletes a take, `l` plays its audio.
+- Checked with piped input on 2026-10-25: two inbox takes, place (7.6 s), accept, then hand-off to
+  the clipboard. Not yet run by the operator.

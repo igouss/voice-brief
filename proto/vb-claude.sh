@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
+if [ "${1:-}" = "--brief" ]; then
+  export VB_BRIEF=1
+  shift
+fi
 port=8899
 ca="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
 if ! ss -ltn "sport = :$port" | grep -q LISTEN; then

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json, sys, time
+import json, os, sys, time
 from pathlib import Path
 
 TMP = Path.home() / "tmp"
@@ -65,6 +65,9 @@ def main():
         f.write(json.dumps({"at": time.strftime("%Y-%m-%dT%H:%M:%S"), "source": "claude-code-voice",
                             "session": hook.get("session_id"), "cwd": hook.get("cwd"), "text": prompt,
                             "dictated": dictated, "audio": audio}, ensure_ascii=False) + "\n")
+    if os.environ.get("VB_BRIEF"):
+        print(json.dumps({"decision": "block",
+                          "reason": "voice-brief: added to the open idea as a take; not sent to Claude."}))
 
 
 if __name__ == "__main__":
