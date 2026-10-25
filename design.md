@@ -226,8 +226,8 @@ Operator words, 2026-10-25:
 
 ## Open questions
 
-1. celld target: the oracle-arm node (survives the desktop sleeping; pi-world's routes have no
-   authentication on the tailnet) or `celld dev` on the desktop.
+1. celld target: a remote celld node (survives the desktop sleeping) or `celld dev` on the
+   desktop.
 2. Audio in git: the proxy captures every dictation's audio, kept untracked for now ("let's not
    track it in git yet"). Opus in the briefs repo, git-lfs, or outside git?
 3. Where the record lives for good: the central `~/briefs` repo, per-project data as now, or
