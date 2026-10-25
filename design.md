@@ -150,14 +150,16 @@ follows is the voxtype design, which now covers only that second path. Work conc
 path for now; this one waits.
 What the switch changes, as far as checked:
 
-- Capture is a prompt in a Claude Code session started with `DEBUG=1`. The `UserPromptSubmit`
-  hook in `proto/vb_hook.py` sees a dictated prompt by the debug-log line
-  `[voice] Injecting transcript (N chars)` since the last submit (*checked* live, one dictated and
-  one typed prompt). That line is undocumented: a Claude Code update can drop it, and then every
-  dictation would silently count as typed. The hook needs a verifier before it is trusted.
+- Capture is a prompt in a Claude Code session started with `proto/vb-claude.sh`. That runs it
+  behind a local mitmproxy that decrypts only `api.anthropic.com`, and `proto/vb_mitm.py` saves
+  the `voice_stream` WebSocket. The `UserPromptSubmit` hook in `proto/vb_hook.py` calls a prompt
+  dictated when it contains the final transcript of an unused stream (*checked* on five live
+  streams). The endpoint and its message types (`TranscriptText`, `TranscriptEndpoint`,
+  `CloseStream`) are undocumented. If a Claude Code update changes them, every dictation will
+  silently count as typed, so the hook needs a verifier before it is trusted.
 - You review the text in Claude Code's input box before Enter, which serves as the approval step.
-- No audio is kept: Claude Code doesn't save the recording. Takes cannot be played back
-  (see Open questions).
+- Claude Code keeps no audio. The proxy saves exactly the frames it sends (16 kHz mono linear16),
+  so takes can be played back.
 - Model residency and the 10-minute unload no longer apply; transcription runs in Anthropic's
   cloud, not on this CPU.
 - The dictated prompt also reaches the agent in that session, which replies to it.
@@ -305,7 +307,7 @@ Operator words, 2026-10-25:
 
 1. celld target: the oracle-arm node (survives the desktop sleeping; pi-world's routes have no
    authentication on the tailnet) or `celld dev` on the desktop.
-2. Playback of takes was asked for ("a way to play back the recording back"), but Claude Code's
-   dictation keeps no audio. Drop playback, or record audio alongside?
+2. Audio in git: the proxy now captures every dictation's audio, which is kept untracked for now
+   ("let's not track it in git yet"). Opus in the briefs repo, git-lfs, or outside git?
 3. Should the dictating session be a dedicated one, so its agent's replies don't mix with project
    work? Or should the hook stop dictated prompts from reaching the agent at all?
