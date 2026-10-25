@@ -27,7 +27,8 @@ const tid = (i: number): string => `t${i + 1}`
 
 let isNotesPane = false
 let pid = 0
-let home = ''
+let projectData = ''
+let project = ''
 let root = ''
 let work = ''
 let startedSecs = 0
@@ -42,7 +43,7 @@ const live = (list: Note[]): [string, Note][] =>
   list.map((n, i): [string, Note] => [tid(i), n]).filter(([, n]) => !n.deleted)
 
 async function poll($: EngineInterface): Promise<void> {
-  const index = `${home}/tmp/vb-proto-audio/index.jsonl`
+  const index = `${projectData}/index.jsonl`
   if (!(await $.fs.exists(index))) return
   const rows: IndexRow[] = (await $.fs.read(index))
     .split('\n')
@@ -175,14 +176,18 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     isNotesPane = (await $.env.get('VB_BRIEF')) === '1'
     if (!isNotesPane) return next(e)
-    home = (await $.env.get('HOME')) ?? ''
-    root = e.cwd
+    const home = (await $.env.get('HOME')) ?? ''
+    const data = (await $.env.get('XDG_DATA_HOME')) ?? `${home}/.local/share`
+    const top = await $.process.run(['git', '-C', e.cwd, 'rev-parse', '--show-toplevel'])
+    project = top.exitCode === 0 ? top.stdout.trim() : e.cwd
+    projectData = `${data}/voice-brief/projects/${project.replaceAll('/', '-')}`
+    root = (await $.process.run(['realpath', `${$.plugin.root}/../..`])).stdout.trim()
     const ppid = await $.process.run(['sh', '-c', 'p=$PPID; while [ "$p" -gt 1 ]; do [ "$(cat /proc/$p/comm)" = claude ] && { echo $p; exit; }; p=$(cut -d" " -f4 /proc/$p/stat); done; echo $PPID'])
     pid = Number(ppid.stdout.trim())
     startedSecs = (await $.clock.now()) / 1000 - 5
-    work = `${home}/tmp/vb-notes/${Math.round(startedSecs)}`
+    work = `${projectData}/notes/${Math.round(startedSecs)}`
     thread = []
-    await log($, 'SessionStarted', { pid, root })
+    await log($, 'SessionStarted', { pid, project, tools: root })
     await $.process.run(['cargo', 'build', '-q', '--bins'], { cwd: `${root}/spike/contract`, timeoutMs: 300000 })
     for (const name of ['vb', 'vb-place', 'vb-accept', 'vb-reject', 'vb-handoff', 'vb-delete', 'vb-fix']) {
       await $.command.register({ name, description: `voice-brief: ${name === 'vb' ? 'open the notes pane' : name.slice(3)}` })
@@ -252,7 +257,7 @@ export const register: Register = on => {
     return (
       <Box flexDirection="column" gap={1}>
         <Box flexDirection="column">
-          <Text bold>Notes ({live(list).length})</Text>
+          <Text bold>Notes ({live(list).length}) <Text dimColor>{project}</Text></Text>
           {list.length === 0 && <Text dimColor>Dictate with /voice. Each dictation lands here; Enter is optional.</Text>}
           {list.map((n, i) => (
             <Box key={n.name}>
