@@ -35,7 +35,7 @@ an agent is the five fields plus my words verbatim with the date (cm-6nu).
 |---|---|
 | The mic and the speech model are local; the window can be hidden or closed while work continues | `vbd`, a background process on the desktop, separate from the `vb` TUI |
 | AI jobs are slow and must survive the desktop sleeping | AI runs on celld under pi-durable, not in `vbd` |
-| History, deletions and revisions must be inspectable and permanent | git is the record; celld keeps no idea state |
+| History, deletions and revisions must be inspectable and permanent | one append-only thread per idea is the record, carried by git; celld keeps no idea state |
 | The bar, Herdr and the TUI all show the same progress | one state file written by `vbd`, read by all three |
 
 No other boundary is earned yet. In particular there is no drafter port: Claude through celld is
@@ -65,32 +65,67 @@ desktop                                                        celld node
   toggle) and is the only writer of git and of the state file.
 - **`vb`** is a client of `vbd` over a unix socket. Closing or hiding it changes nothing in
   progress.
-- **The domain** (ideas, fields, revisions, takes, rubric checks, assembling the prompt) is a
-  framework-free module with no I/O (cm-hkg).
-- **celld** runs only the AI jobs. Each job carries everything it needs (current revision,
-  transcripts in use, rubric, my instruction), so the cell can be wiped without losing anything.
+- **The domain** (the event types, the transition function that computes an idea's state,
+  rubric checks, assembling the prompt) is a framework-free module with no I/O (cm-hkg).
+- **celld** runs only the AI jobs. Each job carries everything it needs (the thread so far,
+  the transcripts it refers to, rubric, my instruction) and returns `ProposalMade` events, so the cell can be wiped without losing anything.
   `AccountCell` is used for the second time here, which earns extracting it from pi-world into a
   shared package.
 
-## The record: `~/briefs` (one central git repo)
+## The record: one append-only thread per idea
+
+The conversation is the record. Each idea has one `thread.jsonl`, a list of typed events that is
+only ever appended to. Everything else about the idea (the five fields, the numbered revisions,
+where each sentence came from, what is waiting for me) is computed from it.
 
 ```
-~/briefs/<idea>/idea.toml           title, status, project.path, project.remote, branch,
-                                    herdr workspace label (display only)
-~/briefs/<idea>/prompt.md           the five fields and Unsorted; front matter: revision = 7
+~/briefs/<idea>/thread.jsonl        the record: typed events, append-only
 ~/briefs/<idea>/takes/0012.opus     audio (Opus: ~50 KB per 30 s instead of ~1 MB of WAV)
-~/briefs/<idea>/takes/0012.toml     field, mode, started, duration, model, project, transcript
-~/briefs/<idea>/reviews/0004.json   prompt sent, proposals, my decision and reason for each
-~/briefs/<idea>/grades/0009.json    rubric version, item results, suggestions
-~/briefs/rubrics/task-v1.toml       the rubric, versioned
+~/briefs/<idea>/takes/0012.toml     transcript, started, duration, model
+~/briefs/<idea>/prompt.md           generated view of the five fields; never edited by hand
+~/briefs/rubrics/task-v1.toml       the rubric, generated from idea.md's format table
 ```
 
-- **Revisions are numbered per idea.** Each accepted change is one commit with trailers
-  `Revision: r7`, `Field: force` and `Takes: 0011, 0012`. The history view is `git log` on
-  `prompt.md` with those trailers rendered.
-- **Deleting a take** is `git rm` of its audio and transcript. It leaves the tree and the AI
-  context, and stays in history; old revisions still name it in their trailers.
-- Herdr ids (`w1`, `w1:p1`) are never stored: they do not survive a server restart.
+### Events
+
+```
+IdeaStarted         { title, project.path, project.remote, branch, herdr workspace label }
+TakeRecorded        { take, target: field | unsorted, mode: append | revise | answer, transcript_hash }
+TranscriptCorrected { take, transcript_hash, reason }
+TakeDeleted         { take, reason }
+Typed               { field, at, text }
+ProposalMade        { kind: place | revise | review | question, claims: [said(take|typed, span) | added(reason)] }
+Accepted            { proposal }
+Rejected            { proposal, reason }
+Asked               { field, question }
+Graded              { rubric_version, results }
+HandedOff           { target: new-agent | paste | clipboard | inbox, revision }
+ClosedNoChange      { reason }
+```
+
+- **Computing the state** is a pure transition `(state, event) -> (state, effects)`, matched
+  exhaustively on every event type (cm-prk), in the framework-free domain (cm-hkg). The prompt,
+  the history view and the AI's context are all outputs of it.
+- **Revisions** are numbered by counting the events that change a field (`Accepted`, `Typed`).
+  The history view is the thread itself, rendered.
+- **A sentence's source** is a take or a `Typed` event: what I type is my words too. Editing a
+  claim the AI tagged `added` makes the edited claim mine.
+- **Transcripts stay out of the thread**, so correcting or deleting one never rewrites it. The
+  thread holds a hash of each transcript version, so a replay can check it has the right file.
+  - **Correcting a transcript** (the speech-to-text got my words wrong, or I rephrase what I
+    meant): the corrected text replaces `takes/0012.toml`, and `TranscriptCorrected` records the
+    new hash and why. The old text stays in git.
+  - **Deleting a take** (the transcript is wrong and not worth fixing): `TakeDeleted` is
+    appended, the audio and transcript are removed with `git rm`, and the take leaves the AI's
+    context. It stays in git history.
+  - After either, every claim citing that take is re-checked: a `said` span that is no longer in
+    the transcript, or whose take is deleted, is marked unsupported and shown to me for review.
+    Nothing is silently re-tagged.
+- **git** carries the thread and the takes and is the history; a commit follows each event or
+  each accepted batch. Herdr ids (`w1`, `w1:p1`) are never stored: they do not survive a server
+  restart.
+- **Would reverse this:** any operation that can only be done by changing or removing an earlier
+  event. The experiment bead checks the mock-up scenarios for one.
 
 ## Speech-to-text and the model's lifetime
 
@@ -137,12 +172,13 @@ A take goes to the selected field, or to Unsorted.
 | Edit | Built-in editor (`tui-textarea`) | no | Unsaved edit |
 | Save | Commit the edited text | no | Next revision |
 | Sort | Unsorted words → proposed placements into the fields, and a question for each field still empty | yes | Accept per placement |
-| Revise | New take + current field → a proposed revision of that field, shown as a diff | yes | Accept = next revision; reject kept in `reviews/` |
+| Revise | New take + current field → a proposed revision of that field, shown as a diff | yes | Accept = next revision; a reject is a `Rejected` event with my reason |
 | AI review | A visible, editable review prompt (template plus my instruction, typed or spoken) → proposals | yes | Accept per proposal |
 | Grade | Rubric checklist per field: pass / partial / missing, one suggestion per gap | partly | Shown beside the prompt; re-graded after each revision |
 | Ask | The AI asks about the weakest field; I answer by voice or keyboard; the answer is a take | yes | Proposals for that field |
 | New idea, idea list | `n` starts an idea; the list shows past ideas with status, filtered to the current project | no | — |
-| Delete take | `git rm` the take | no | Gone from the tree and the AI context; kept in history |
+| Correct transcript | Fix what speech-to-text got wrong, or rephrase what I meant | no | `TranscriptCorrected`; claims citing the take are re-checked |
+| Delete take | `TakeDeleted`, then `git rm` the take | no | Gone from the tree and the AI context; kept in history; claims citing it marked unsupported |
 
 Every proposal is tagged `said` (with the transcript it comes from) or `added` (no transcript
 supports it). The AI never fills an empty field with a guess: it asks. Nothing is written without
@@ -217,6 +253,8 @@ Operator words, 2026-10-25:
 - "building a task prompt for the agent is the idea."
 - "Weakest part, force, smallest move come from cm-dr0 … Preserves, would reverse it come from
   cm-e2y … Smallest move stays."
+- "OK for one thread.jsonl per idea." "Regarding deletion, sometimes the idea needs a rephrasing,
+  or to be deleted because transcipt is wrong."
 
 ## Open questions
 
