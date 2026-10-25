@@ -8,4 +8,4 @@ if ! ss -ltn "sport = :$port" | grep -q LISTEN; then
     --set flow_detail=0 -s "$here/vb_mitm.py" >>"$HOME/tmp/vb-proto-mitm.out" 2>&1 &
   for _ in $(seq 50); do ss -ltn "sport = :$port" | grep -q LISTEN && break; sleep 0.1; done
 fi
-DEBUG=1 HTTPS_PROXY="http://127.0.0.1:$port" NODE_EXTRA_CA_CERTS="$ca" exec claude "$@"
+HTTPS_PROXY="http://127.0.0.1:$port" NODE_EXTRA_CA_CERTS="$ca" exec claude "$@"

@@ -6,9 +6,24 @@ from mitmproxy import http
 VOICE_PATH = "/api/ws/speech_to_text/voice_stream"
 OUT = Path.home() / "tmp" / "vb-proto-audio"
 INDEX = OUT / "index.jsonl"
+OPEN = OUT / "open"
 RATE = 16000
 
 streams = {}
+
+
+def final_transcript(server_text):
+    utterances, current = [], ""
+    for m in server_text:
+        msg = json.loads(m["text"]) if m["text"].startswith("{") else {}
+        if msg.get("type") == "TranscriptText":
+            current = msg.get("data", "")
+        elif msg.get("type") == "TranscriptEndpoint" and current:
+            utterances.append(current)
+            current = ""
+    if current:
+        utterances.append(current)
+    return " ".join(utterances)
 
 
 def is_voice(flow):
@@ -18,8 +33,9 @@ def is_voice(flow):
 def websocket_start(flow: http.HTTPFlow):
     if not is_voice(flow):
         return
-    OUT.mkdir(parents=True, exist_ok=True)
+    OPEN.mkdir(parents=True, exist_ok=True)
     name = time.strftime("%Y%m%dT%H%M%S") + f"-{flow.id[:8]}"
+    (OPEN / name).touch()
     streams[flow.id] = {"name": name, "start": time.time(), "audio": bytearray(), "chunks": 0,
                         "client_text": [], "server_text": []}
 
@@ -49,8 +65,13 @@ def websocket_end(flow: http.HTTPFlow):
         w.setframerate(RATE)
         w.writeframes(bytes(s["audio"]))
     meta = {"name": s["name"], "start": s["start"], "end": time.time(), "wav": str(wav), "bytes": len(s["audio"]),
-            "chunks": s["chunks"], "query": flow.request.query.fields and dict(flow.request.query),
+            "chunks": s["chunks"], "final": final_transcript(s["server_text"]),
+            "closed_by_client": any('"CloseStream"' in m["text"] for m in s["client_text"]),
+            "endpoint": any('"TranscriptEndpoint"' in m["text"] for m in s["server_text"]),
+            "query": flow.request.query.fields and dict(flow.request.query),
             "client_text": s["client_text"], "server_text": s["server_text"]}
+    (OPEN / s["name"]).unlink(missing_ok=True)
     (OUT / f"{s['name']}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1))
     with INDEX.open("a") as f:
-        f.write(json.dumps({k: meta[k] for k in ("name", "start", "end", "wav", "bytes", "chunks")}) + "\n")
+        f.write(json.dumps({k: meta[k] for k in ("name", "start", "end", "wav", "bytes", "chunks", "final",
+                                                   "closed_by_client", "endpoint")}, ensure_ascii=False) + "\n")

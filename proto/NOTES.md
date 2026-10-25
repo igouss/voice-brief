@@ -61,35 +61,42 @@ refused), t4 a real idea about 50 s long.
 
 Only prompts dictated with Claude Code's `/voice` go into the idea; typed prompts don't.
 
-- Claude Code doesn't mark dictated prompts. The hook input, `history.jsonl` and the session log
-  all record them as typed (`promptSource: "typed"`).
-- The only local signal is Claude Code's debug log. When a dictation is put into the input box it
-  writes `[voice] Injecting transcript (N chars)`.
-- No `settings.json` key turns that log on; an `env` block in settings is read too late. It has
-  to be set in the environment before Claude Code starts: `DEBUG=1` writes
-  `~/.claude/debug/<session_id>.txt`.
+- Claude Code records dictated prompts as typed in the hook input, `history.jsonl` and the session
+  log.
+- The first detector read Claude Code's debug log (`DEBUG=1`, line
+  `[voice] Injecting transcript`). It was replaced on 2026-10-25 by the proxy (next section).
 - `proto/vb_hook.py` runs on every prompt submitted in this project (from
-  `.claude/settings.local.json`, gitignored). It checks whether that session's debug log gained a
-  `[voice] Injecting transcript` line since the last submit. If so, it copies the prompt to
-  `~/tmp/vb-proto-inbox.jsonl`; the prompt still goes to Claude.
-- Each decision is logged to `~/tmp/vb-proto-hook.jsonl`.
+  `.claude/settings.local.json`, gitignored). A prompt counts as dictated when it contains the
+  final transcript of a voice stream that ended after this session's previous prompt and that no
+  earlier prompt used. Case and whitespace don't matter.
+  - `edited` means the prompt holds more than the dictated text.
+  - A prompt that matches nothing is typed. That covers prompts Claude Code injects, such as
+    task notifications, which the debug-log detector had counted as dictated.
+- Dictated prompts go to `~/tmp/vb-proto-inbox.jsonl` and still reach Claude. Each decision is
+  logged to `~/tmp/vb-proto-hook.jsonl`.
 - The prototype drains the inbox before each screen, recording a `TakeRecorded` with
   `source: claude-code-voice`.
-- Seen live on 2026-10-25: a typed prompt was classified "typed"; a dictated one was "dictated", and the logged character count (95) matched the prompt. A dictation that you then edit by keyboard still counts as dictated.
+- Replayed on the five streams captured live on 2026-10-25:
+  - two dictations in one prompt matched, unedited;
+  - a dictation with a typed fix ("wgar") matched as edited;
+  - the same stream was not used twice;
+  - a typed prompt and a task notification stayed typed.
 
 ## Voice audio from Claude Code
 
 Claude Code keeps no audio, and its stream-URL override (`VOICE_STREAM_BASE_URL`) is compiled
 out. `proto/vb-claude.sh` starts `mitmdump` on 127.0.0.1:8899 if it isn't already running, then
-runs `claude` with `DEBUG=1`, `HTTPS_PROXY` and the mitmproxy CA.
+runs `claude` with `HTTPS_PROXY` and the mitmproxy CA.
 
 - Only `api.anthropic.com` is decrypted.
 - `proto/vb_mitm.py` saves only the `voice_stream` WebSocket. Each stream gets a WAV of the
   client's binary frames (16 kHz mono linear16), a JSON file with the server's transcript
   messages, and a line in `~/tmp/vb-proto-audio/index.jsonl`. Nothing else is written.
-- The hook matches each recording span in the debug log to a captured stream. It counts a
-  recording as exact only when the captured bytes equal the sum of the "Sending audio chunk"
-  sizes in the log.
+- Each stream's index line holds its final transcript: the last `TranscriptText` of each
+  utterance, joined. It also says whether the client sent `CloseStream` and the server sent
+  `TranscriptEndpoint`; `ok` means both happened.
+- Until the debug log was dropped, the hook also compared captured bytes with the debug log's
+  chunk sizes. They were equal for every stream it checked.
 - On 12 dictations, the bytes sent were 0.92 to 0.99 of the span between "Starting recording
   session" and "Recording stopped".
 - Checked:
