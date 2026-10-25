@@ -1,5 +1,5 @@
 {
   "name": "voice-brief",
   "owner": { "name": "Iouri Goussev" },
-  "plugins": [{ "name": "voice-notes", "source": "./proto/voice-notes", "description": "voice-brief notes pane: captured dictations, the five-field prompt, place, accept and hand off" }]
+  "plugins": [{ "name": "voice-notes", "source": "./plugins/voice-notes", "description": "voice-brief notes pane: captured dictations, the five-field prompt, place, accept and hand off" }]
 }

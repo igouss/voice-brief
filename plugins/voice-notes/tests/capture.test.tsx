@@ -11,11 +11,10 @@ const row = (pid: number, final: string): string =>
   JSON.stringify({ name: `s-${pid}`, start: 1001, pid, final, wav: '/w.wav', closed_by_client: true, endpoint: true })
 
 async function start($: any, on: any, index: string): Promise<{ advance: (ms: number) => Promise<void> }> {
-  mock.env(on, { VB_BRIEF: '1', HOME: '/h' })
+  mock.env(on, { HOME: '/h', HTTPS_PROXY: 'http://127.0.0.1:8897' })
   const clock = mock.clock(on, { now: 1_000_000 })
-  on('process.run', (_: unknown, e: { argv: string[] }) => ({ value: { exitCode: 0, stdout: e.argv[0] === 'sh' ? '4242\n' : '', stderr: '' } }))
-  on('fs.exists', () => ({ value: true }))
-  on('fs.read', () => ({ value: index }))
+  on('fs.exists', (_: unknown, e: { path: string }) => ({ value: !e.path.endsWith('/.git') || e.path === '/repo/.git' }))
+  on('fs.read', (_: unknown, e: { path: string }) => ({ value: e.path === '/proc/self/stat' ? '4242 (claude) S 1 4242' : index }))
   on('fs.write', () => ({ value: undefined }))
   on('command.register', () => ({ value: {} }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
@@ -52,4 +51,31 @@ test('minimize leaves a one-line summary above the prompt', async ($, on) => {
   const band = await $.ui.mount({ ...BAND, surface: 'terminal' })
   expect((await band.find({ type: 'Text', text: /notes ·/ }))?.text).toBe('1 notes · no proposal')
   await band.unmount()
+})
+
+const asked = (q: string): object => ({ claims: [], question: q })
+const reply = (span: string): string => JSON.stringify({ fields: {
+  weakest_part: { claims: [{ id: 'c1', text: 'The sync module.', said: [span] }] },
+  force: asked('f?'), smallest_move: asked('m?'), preserves: asked('p?'), would_reverse_it: asked('r?'),
+} })
+
+async function placeWith($: any, on: any, text: string): Promise<any> {
+  on('model.complete', (_: unknown, e: { model: string; system: string }) => ({ value: { isAnswered: true, text, usage: { inputTokens: 1, outputTokens: 1 }, model: e.model } }))
+  const clock = await start($, on, row(4242, 'the weakest part is the sync module') + '\n')
+  await clock.advance(1100)
+  const pane = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await pane.press({ key: 'place' })
+  return pane
+}
+
+test('a reply quoting the notes becomes a proposal', async ($, on) => {
+  const pane = await placeWith($, on, reply('the sync module'))
+  expect((await pane.find({ type: 'Text', text: /said t1/ }))?.text).toBe('said t1')
+  await pane.unmount()
+})
+
+test('a reply quoting words never said is refused', async ($, on) => {
+  const pane = await placeWith($, on, reply('the sync layer'))
+  expect((await pane.find({ type: 'Text', text: /broke the contract/ }))?.text).toContain('span_not_in_transcript')
+  await pane.unmount()
 })

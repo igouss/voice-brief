@@ -1,0 +1,18 @@
+{
+  "name": "voice-notes",
+  "version": "0.2.0",
+  "description": "voice-brief notes pane: captured dictations, the five-field prompt, place, accept and hand off",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "Iouri Goussev",
+    "url": "https://github.com/igouss"
+  },
+  "homepage": "https://github.com/igouss/voice-brief",
+  "repository": "https://github.com/igouss/voice-brief",
+  "keywords": [
+    "voice",
+    "dictation",
+    "task-prompt",
+    "mitmproxy"
+  ]
+}

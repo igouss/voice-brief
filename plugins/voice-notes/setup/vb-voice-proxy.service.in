@@ -2,7 +2,7 @@
 Description=voice-brief voice proxy: decrypts api.anthropic.com only, saves Claude Code voice streams
 
 [Service]
-ExecStart=%h/.local/bin/mitmdump --listen-host 127.0.0.1 -p 8897 --allow-hosts "^api\\.anthropic\\.com(:443)?$$" --set flow_detail=0 -s @REPO@/proto/vb_mitm.py
+ExecStart=%h/.local/bin/mitmdump --listen-host 127.0.0.1 -p 8897 --allow-hosts "^api\\.anthropic\\.com(:443)?$$" --set flow_detail=0 -s @ADDON@
 Restart=on-failure
 RestartSec=1
 

@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderSurface } from 'claude-code'
 
 import type { Claim, Note, PaneSize, Proposal } from '../types'
+import { FIELDS as KEYS, validate } from './contract'
 
 const PANE = 'voice-notes'
 const FIELDS: [string, string][] = [
@@ -22,17 +23,21 @@ const latest = atom({ plugin: 'voice-notes', key: 'latest' } as const, null as s
 const size = atom({ plugin: 'voice-notes', key: 'size' } as const, 'normal' as PaneSize)
 
 const COLUMNS: Record<PaneSize, number> = { min: 0, normal: 56, max: 400 }
+const PROXY_URL = 'http://127.0.0.1:8897'
+const MODEL = 'claude-opus-5-5'
+const EFFORT = 'medium'
 
 type IndexRow = { name: string; start: number; pid?: number | null; final: string; wav: string; closed_by_client: boolean; endpoint: boolean }
 
 const norm = (s: string): string => s.replace(/[‘’]/g, "'").split(/\s+/).filter(Boolean).join(' ').toLowerCase()
 const tid = (i: number): string => `t${i + 1}`
 
-let isNotesPane = false
+let isCapturing = false
 let pid = 0
+let home = ''
+let dataHome = ''
 let projectData = ''
 let project = ''
-let root = ''
 let work = ''
 let startedSecs = 0
 let thread: object[] = []
@@ -75,33 +80,42 @@ async function place($: EngineInterface): Promise<void> {
     await update($, message, () => 'No notes yet: dictate with /voice first.')
     return
   }
-  const n = thread.length + 1
-  const dir = `${work}/place-${n}`
+  const dir = `${work}/place-${thread.length + 1}`
   const transcript = takes.map(([t, note]) => `[${t}] ${note.text}`).join('\n\n')
-  await $.fs.write(`${dir}/transcript.txt`, transcript)
   await update($, busy, () => `Placing ${takes.map(([t]) => t).join(', ')}…`)
   await update($, message, () => '')
   const base = await read($, rev)
   await log($, 'JobSubmitted', { base, ctx: takes.map(([t]) => t), dir })
   const t0 = await $.clock.now()
   try {
-    const render = await $.process.run([`${root}/spike/contract/target/debug/render`, `${root}/idea.md`, `${root}/spike/contract/prompt/system.md`])
-    await $.fs.write(`${dir}/system.md`, render.stdout)
-    const call = await $.process.run([`${root}/spike/isolation/run.sh`, 'isolated', `${dir}/system.md`, `${dir}/transcript.txt`, dir], { timeoutMs: 300000, stdin: '' })
-    if (call.exitCode !== 0) throw new Error(`model call failed (${call.exitCode}): ${call.stderr.slice(-300)}`)
-    const v = await $.process.run([`${root}/spike/contract/target/debug/validate`, 'notes', `${dir}/transcript.txt`, `${dir}/reply.txt`])
+    const system = await $.fs.read(`${$.plugin.root}/prompt/system.md`)
+    await $.fs.write(`${dir}/system.md`, system)
+    await $.fs.write(`${dir}/transcript.txt`, transcript)
+    const r = await $.model.complete({ model: MODEL, system, prompt: transcript, effort: EFFORT, timeoutMs: 300000 })
     const secs = Math.round(((await $.clock.now()) - t0) / 100) / 10
-    if (v.exitCode !== 0) {
-      await log($, 'JobFailed', { violations: v.stdout.trim().split('\n') })
-      await update($, message, () => `The reply broke the contract: ${v.stdout.trim().slice(0, 300)}`)
+    await $.fs.write(`${dir}/call.json`, JSON.stringify({ model: MODEL, effort: EFFORT, secs, isAnswered: r.isAnswered, usage: r.usage }, null, 1))
+    if (!r.isAnswered) {
+      await log($, 'JobFailed', { reason: r.reason })
+      await update($, message, () => `The model gave no reply (${r.reason}).`)
       return
     }
-    const events = JSON.parse(v.stdout)
+    await $.fs.write(`${dir}/reply.txt`, r.text)
+    const v = validate(transcript, r.text)
+    if (!v.ok) {
+      await log($, 'JobFailed', { violations: v.violations })
+      await update($, message, () => `The reply broke the contract: ${v.violations.map(x => x.violation).join(', ')}`)
+      return
+    }
+    const claims: Record<string, Claim[]> = {}
     const asked: Record<string, string> = {}
-    for (const e of events.slice(1)) asked[e.field] = e.question
-    const p: Proposal = { base, ctx: takes.map(([t]) => t), claims: events[0].fields, asked, secs }
+    for (const key of KEYS) {
+      const placement = v.placed[key]
+      if (placement.kind === 'claims') claims[key] = placement.claims
+      else asked[key] = placement.question
+    }
+    const p: Proposal = { base, ctx: takes.map(([t]) => t), claims, asked, secs }
     await update($, proposal, () => p)
-    await log($, 'ProposalMade', { kind: 'place', secs, claims: p.claims, asked })
+    await log($, 'ProposalMade', { kind: 'place', secs, claims, asked })
     await update($, message, () => `Proposal ready in ${secs}s. Accept it, or dictate an answer and place again.`)
   } catch (err) {
     await log($, 'JobFailed', { error: String(err) })
@@ -109,6 +123,40 @@ async function place($: EngineInterface): Promise<void> {
   } finally {
     await update($, busy, () => null)
   }
+}
+
+async function gitRoot($: EngineInterface, cwd: string): Promise<string> {
+  let dir = cwd
+  while (dir !== '' && dir !== '/') {
+    if (await $.fs.exists(`${dir}/.git`)) return dir
+    dir = dir.slice(0, dir.lastIndexOf('/'))
+  }
+  return cwd
+}
+
+async function setup($: EngineInterface): Promise<string> {
+  const mitmdump = `${home}/.local/bin/mitmdump`
+  if (!(await $.fs.exists(mitmdump))) return 'mitmdump is not at ~/.local/bin/mitmdump. Run `uv tool install mitmproxy`, then /vb-setup again.'
+  const addon = `${dataHome}/voice-brief/vb_mitm.py`
+  await $.fs.write(addon, await $.fs.read(`${$.plugin.root}/setup/vb_mitm.py`))
+  const config = (await $.env.get('XDG_CONFIG_HOME')) ?? `${home}/.config`
+  const unit = `${config}/systemd/user/vb-voice-proxy.service`
+  await $.fs.write(unit, (await $.fs.read(`${$.plugin.root}/setup/vb-voice-proxy.service.in`)).replaceAll('@ADDON@', addon))
+  for (const argv of [['systemctl', '--user', 'daemon-reload'], ['systemctl', '--user', 'enable', 'vb-voice-proxy.service'], ['systemctl', '--user', 'restart', 'vb-voice-proxy.service']]) {
+    const r = await $.process.run(argv)
+    if (r.exitCode !== 0) return `\`${argv.join(' ')}\` failed: ${r.stderr.trim()}`
+  }
+  const ca = `${home}/.mitmproxy/mitmproxy-ca-cert.pem`
+  for (let i = 0; i < 50 && !(await $.fs.exists(ca)); i++) await $.clock.sleep(100)
+  if (!(await $.fs.exists(ca))) return `The proxy started but ${ca} did not appear. See \`journalctl --user -u vb-voice-proxy\`.`
+  const path = `${project}/.claude/settings.local.json`
+  const current: { env?: Record<string, string> } = (await $.fs.exists(path)) ? JSON.parse(await $.fs.read(path)) : {}
+  current.env = { ...(current.env ?? {}), HTTPS_PROXY: PROXY_URL, NODE_EXTRA_CA_CERTS: ca }
+  await $.fs.write(path, JSON.stringify(current, null, 2) + '\n')
+  const ignore = (await $.fs.exists(`${project}/.gitignore`)) ? await $.fs.read(`${project}/.gitignore`) : ''
+  const warn = ignore.includes('settings.local.json') ? '' : ' Add `.claude/settings.local.json` to .gitignore: it holds a path under your home.'
+  await log($, 'SetUp', { unit, addon, settings: path })
+  return `Installed ${unit} (proxy on ${PROXY_URL}) and wrote ${path}. Restart Claude Code in ${project} to start capturing.${warn}`
 }
 
 async function resize($: EngineInterface, to: PaneSize): Promise<void> {
@@ -183,32 +231,27 @@ async function fix($: EngineInterface, take: string, text: string): Promise<void
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    isNotesPane = (await $.env.get('VB_BRIEF')) === '1'
-    if (!isNotesPane) return next(e)
-    const home = (await $.env.get('HOME')) ?? ''
-    const data = (await $.env.get('XDG_DATA_HOME')) ?? `${home}/.local/share`
-    const top = await $.process.run(['git', '-C', e.cwd, 'rev-parse', '--show-toplevel'])
-    project = top.exitCode === 0 ? top.stdout.trim() : e.cwd
-    projectData = `${data}/voice-brief/projects/${project.replaceAll('/', '-')}`
-    root = (await $.process.run(['realpath', `${$.plugin.root}/../..`])).stdout.trim()
-    const ppid = await $.process.run(['sh', '-c', 'p=$PPID; while [ "$p" -gt 1 ]; do [ "$(cat /proc/$p/comm)" = claude ] && { echo $p; exit; }; p=$(cut -d" " -f4 /proc/$p/stat); done; echo $PPID'])
-    pid = Number(ppid.stdout.trim())
+    home = (await $.env.get('HOME')) ?? ''
+    dataHome = (await $.env.get('XDG_DATA_HOME')) ?? `${home}/.local/share`
+    isCapturing = (await $.env.get('HTTPS_PROXY')) === PROXY_URL
+    project = await gitRoot($, e.cwd)
+    projectData = `${dataHome}/voice-brief/projects/${project.replaceAll('/', '-')}`
+    pid = Number((await $.fs.read('/proc/self/stat')).split(' ')[0])
     startedSecs = (await $.clock.now()) / 1000 - 5
     work = `${projectData}/notes/${Math.round(startedSecs)}`
     thread = []
-    await log($, 'SessionStarted', { pid, project, tools: root })
-    await $.process.run(['cargo', 'build', '-q', '--bins'], { cwd: `${root}/spike/contract`, timeoutMs: 300000 })
-    for (const name of ['vb', 'vb-min', 'vb-max', 'vb-place', 'vb-accept', 'vb-reject', 'vb-handoff', 'vb-delete', 'vb-fix']) {
+    await log($, 'SessionStarted', { pid, project, isCapturing })
+    for (const name of ['vb', 'vb-min', 'vb-max', 'vb-place', 'vb-accept', 'vb-reject', 'vb-handoff', 'vb-delete', 'vb-fix', 'vb-setup']) {
       await $.command.register({ name, description: `voice-brief: ${name === 'vb' ? 'open the notes pane' : name.slice(3)}` })
     }
     $.clock.every(1000, () => void poll($))
-    $.ui.status('voice notes: listening')
+    $.ui.status(isCapturing ? 'voice notes: listening' : 'voice notes: not capturing (/vb-setup)')
     void resize($, await read($, size))
     return next(e)
   })
 
   on('command.run', async ($, e, next) => {
-    if (!isNotesPane || !e.command.startsWith('vb')) return next(e)
+    if (!e.command.startsWith('vb')) return next(e)
     const [take = '', ...rest] = e.args.trim().split(/\s+/)
     switch (e.command) {
       case 'vb': await resize($, 'normal'); return { text: 'Voice notes pane opened.' }
@@ -220,12 +263,12 @@ export const register: Register = on => {
       case 'vb-handoff': await handOff($); return { text: await read($, message) }
       case 'vb-delete': await remove($, take); return { text: await read($, message) }
       case 'vb-fix': await fix($, take, rest.join(' ')); return { text: await read($, message) }
+      case 'vb-setup': return { text: await setup($) }
       default: return next(e)
     }
   })
 
   on('prompt.submit', async ($, e, next) => {
-    if (!isNotesPane) return next(e)
     const text = norm(e.text)
     const list = await read($, notes)
     const sent = list.map((n, i) => (!n.sent && norm(n.text) && text.includes(norm(n.text)) ? i : -1)).filter(i => i >= 0)
@@ -238,7 +281,6 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    if (!isNotesPane) return next(e)
     const last = await read($, latest)
     const isMin = (await read($, size)) === 'min'
     if (!last && !isMin) return next(e)
@@ -294,7 +336,8 @@ export const register: Register = on => {
         </Box>
         <Box flexDirection="column">
           <Text bold>Notes ({live(list).length}) <Text dimColor>{project}</Text></Text>
-          {list.length === 0 && <Text dimColor>Dictate with /voice. Each dictation lands here; Enter is optional.</Text>}
+          {!isCapturing && <Text color="warning">Not capturing: this session does not go through the voice proxy. Run /vb-setup, then restart Claude Code.</Text>}
+          {isCapturing && list.length === 0 && <Text dimColor>Dictate with /voice. Each dictation lands here; Enter is optional.</Text>}
           {list.map((n, i) => (
             <Box key={n.name}>
               <Text dimColor={n.deleted} strikethrough={n.deleted}>
