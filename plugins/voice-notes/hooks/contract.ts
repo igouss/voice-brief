@@ -1,7 +1,16 @@
-export const FIELDS = ['weakest_part', 'force', 'smallest_move', 'preserves', 'would_reverse_it'] as const
-export type Field = (typeof FIELDS)[number]
+import type { Claim, Field } from '../types'
 
-export type Claim = { id: string; text: string; said?: string[]; added?: string }
+export type { Claim, Field }
+
+export const TITLES: Record<Field, string> = {
+  weakest_part: 'Weakest part',
+  force: 'Force',
+  smallest_move: 'Smallest move',
+  preserves: 'Preserves',
+  would_reverse_it: 'Would reverse it',
+}
+
+export const FIELDS: Field[] = Object.keys(TITLES) as Field[]
 
 export type Placement = { kind: 'claims'; claims: Claim[] } | { kind: 'asked'; question: string }
 
@@ -25,7 +34,7 @@ type WireClaim = { id?: unknown; text?: unknown; said?: unknown; added?: unknown
 type WireField = { claims?: unknown; question?: unknown }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
-const isField = (k: string): k is Field => (FIELDS as readonly string[]).includes(k)
+const isField = (k: string): k is Field => (FIELDS as string[]).includes(k)
 
 export function normalize(text: string): string {
   return text.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').split(/\s+/).filter(Boolean).join(' ')

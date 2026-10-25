@@ -1,17 +1,11 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderSurface } from 'claude-code'
 
-import type { Claim, Note, PaneSize, Proposal } from '../types'
-import { FIELDS as KEYS, validate } from './contract'
+import type { Claim, Field, Note, PaneSize, Proposal, ThreadEvent, ThreadLine } from '../types'
+import { FIELDS as KEYS, TITLES, validate } from './contract'
 
 const PANE = 'voice-notes'
-const FIELDS: [string, string][] = [
-  ['weakest_part', 'Weakest part'],
-  ['force', 'Force'],
-  ['smallest_move', 'Smallest move'],
-  ['preserves', 'Preserves'],
-  ['would_reverse_it', 'Would reverse it'],
-]
+const FIELDS: [Field, string][] = KEYS.map(k => [k, TITLES[k]])
 
 const notes = atom({ plugin: 'voice-notes', key: 'notes' } as const, [] as Note[], { shape: 'notes-1' })
 const proposal = atom({ plugin: 'voice-notes', key: 'proposal' } as const, null as Proposal | null, { shape: 'proposal-1' })
@@ -40,10 +34,11 @@ let projectData = ''
 let project = ''
 let work = ''
 let startedSecs = 0
-let thread: object[] = []
+let thread: ThreadLine[] = []
 
-async function log($: EngineInterface, type: string, data: object): Promise<void> {
-  thread = [...thread, { n: thread.length + 1, type, at: await $.clock.now(), ...data }]
+async function log($: EngineInterface, event: ThreadEvent): Promise<void> {
+  const line: ThreadLine = { n: thread.length + 1, at: await $.clock.now(), ...event }
+  thread = [...thread, line]
   await $.fs.write(`${work}/thread.jsonl`, thread.map(e => JSON.stringify(e)).join('\n') + '\n')
 }
 
@@ -67,7 +62,7 @@ async function poll($: EngineInterface): Promise<void> {
   }))
   await update($, notes, list => [...list, ...added])
   const count = (await read($, notes)).length
-  for (const n of added) await log($, 'TakeRecorded', { take: tid(count - added.length + added.indexOf(n)), stream: n.name, text: n.text, wav: n.wav, ok: n.ok })
+  for (const n of added) await log($, { type: 'TakeRecorded', take: tid(count - added.length + added.indexOf(n)), stream: n.name, text: n.text, wav: n.wav, ok: n.ok })
   const newest: Note | undefined = added[added.length - 1]
   if (newest) await update($, latest, () => `${tid(count - 1)}: ${newest.text}`)
   $.ui.status(`voice notes: ${count} captured`)
@@ -85,7 +80,7 @@ async function place($: EngineInterface): Promise<void> {
   await update($, busy, () => `Placing ${takes.map(([t]) => t).join(', ')}…`)
   await update($, message, () => '')
   const base = await read($, rev)
-  await log($, 'JobSubmitted', { base, ctx: takes.map(([t]) => t), dir })
+  await log($, { type: 'JobSubmitted', base, ctx: takes.map(([t]) => t), dir })
   const t0 = await $.clock.now()
   try {
     const system = await $.fs.read(`${$.plugin.root}/prompt/system.md`)
@@ -95,19 +90,19 @@ async function place($: EngineInterface): Promise<void> {
     const secs = Math.round(((await $.clock.now()) - t0) / 100) / 10
     await $.fs.write(`${dir}/call.json`, JSON.stringify({ model: MODEL, effort: EFFORT, secs, isAnswered: r.isAnswered, usage: r.usage }, null, 1))
     if (!r.isAnswered) {
-      await log($, 'JobFailed', { reason: r.reason })
+      await log($, { type: 'JobFailed', reason: r.reason })
       await update($, message, () => `The model gave no reply (${r.reason}).`)
       return
     }
     await $.fs.write(`${dir}/reply.txt`, r.text)
     const v = validate(transcript, r.text)
     if (!v.ok) {
-      await log($, 'JobFailed', { violations: v.violations })
+      await log($, { type: 'JobFailed', violations: v.violations })
       await update($, message, () => `The reply broke the contract: ${v.violations.map(x => x.violation).join(', ')}`)
       return
     }
-    const claims: Record<string, Claim[]> = {}
-    const asked: Record<string, string> = {}
+    const claims: Proposal['claims'] = {}
+    const asked: Proposal['asked'] = {}
     for (const key of KEYS) {
       const placement = v.placed[key]
       if (placement.kind === 'claims') claims[key] = placement.claims
@@ -115,10 +110,10 @@ async function place($: EngineInterface): Promise<void> {
     }
     const p: Proposal = { base, ctx: takes.map(([t]) => t), claims, asked, secs }
     await update($, proposal, () => p)
-    await log($, 'ProposalMade', { kind: 'place', secs, claims, asked })
+    await log($, { type: 'ProposalMade', kind: 'place', secs, claims, asked })
     await update($, message, () => `Proposal ready in ${secs}s. Accept it, or dictate an answer and place again.`)
   } catch (err) {
-    await log($, 'JobFailed', { error: String(err) })
+    await log($, { type: 'JobFailed', error: String(err) })
     await update($, message, () => String(err))
   } finally {
     await update($, busy, () => null)
@@ -155,7 +150,7 @@ async function setup($: EngineInterface): Promise<string> {
   await $.fs.write(path, JSON.stringify(current, null, 2) + '\n')
   const ignore = (await $.fs.exists(`${project}/.gitignore`)) ? await $.fs.read(`${project}/.gitignore`) : ''
   const warn = ignore.includes('settings.local.json') ? '' : ' Add `.claude/settings.local.json` to .gitignore: it holds a path under your home.'
-  await log($, 'SetUp', { unit, addon, settings: path })
+  await log($, { type: 'SetUp', unit, addon, settings: path })
   return `Installed ${unit} (proxy on ${PROXY_URL}) and wrote ${path}. Restart Claude Code in ${project} to start capturing.${warn}`
 }
 
@@ -181,14 +176,14 @@ async function accept($: EngineInterface): Promise<void> {
   await update($, accepted, () => p)
   await update($, proposal, () => null)
   const now = await read($, rev)
-  await log($, 'Accepted', { revision: now })
+  await log($, { type: 'Accepted', revision: now })
   await update($, message, () => `Accepted as revision ${now}. Hand off when it says what you mean.`)
 }
 
 async function reject($: EngineInterface): Promise<void> {
   if (!(await read($, proposal))) return
   await update($, proposal, () => null)
-  await log($, 'Rejected', {})
+  await log($, { type: 'Rejected' })
   await update($, message, () => 'Rejected.')
 }
 
@@ -209,14 +204,14 @@ async function handOff($: EngineInterface, surface?: RenderSurface): Promise<voi
   await $.fs.write(`${work}/prompt.md`, text)
   $.ui.copy({ text, surface })
   const now = await read($, rev)
-  await log($, 'HandedOff', { target: 'clipboard', revision: now, path: `${work}/prompt.md` })
+  await log($, { type: 'HandedOff', target: 'clipboard', revision: now, path: `${work}/prompt.md` })
   await update($, message, () => `Revision ${now} copied to the clipboard and written to ${work}/prompt.md`)
 }
 
 async function remove($: EngineInterface, take: string): Promise<void> {
   const i = Number(take.replace(/^t/, '')) - 1
   await update($, notes, list => list.map((n, j) => (j === i ? { ...n, deleted: true } : n)))
-  await log($, 'TakeDeleted', { take })
+  await log($, { type: 'TakeDeleted', take })
   await update($, message, () => `${take} deleted. Place again.`)
 }
 
@@ -225,7 +220,7 @@ async function fix($: EngineInterface, take: string, text: string): Promise<void
   const before = (await read($, notes))[i]?.text
   if (before === undefined || !text.trim()) return
   await update($, notes, list => list.map((n, j) => (j === i ? { ...n, text } : n)))
-  await log($, 'TranscriptCorrected', { take, before, after: text })
+  await log($, { type: 'TranscriptCorrected', take, before, after: text })
   await update($, message, () => `${take} corrected. Place again.`)
 }
 
@@ -240,7 +235,7 @@ export const register: Register = on => {
     startedSecs = (await $.clock.now()) / 1000 - 5
     work = `${projectData}/notes/${Math.round(startedSecs)}`
     thread = []
-    await log($, 'SessionStarted', { pid, project, isCapturing })
+    await log($, { type: 'SessionStarted', pid, project, isCapturing })
     for (const name of ['vb', 'vb-min', 'vb-max', 'vb-place', 'vb-accept', 'vb-reject', 'vb-handoff', 'vb-delete', 'vb-fix', 'vb-setup']) {
       await $.command.register({ name, description: `voice-brief: ${name === 'vb' ? 'open the notes pane' : name.slice(3)}` })
     }
@@ -274,7 +269,7 @@ export const register: Register = on => {
     const sent = list.map((n, i) => (!n.sent && norm(n.text) && text.includes(norm(n.text)) ? i : -1)).filter(i => i >= 0)
     if (sent.length) {
       await update($, notes, l => l.map((n, i) => (sent.includes(i) ? { ...n, sent: true } : n)))
-      for (const i of sent) await log($, 'TakeSent', { take: tid(i) })
+      for (const i of sent) await log($, { type: 'TakeSent', take: tid(i) })
     }
     await update($, latest, () => null)
     return next(e)
