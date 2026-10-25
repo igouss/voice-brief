@@ -93,6 +93,7 @@ IdeaStarted         { title, project.path, project.remote, branch, herdr workspa
 TakeRecorded        { take, target: field | unsorted, mode: append | revise | answer, transcript_hash }
 TranscriptCorrected { take, transcript_hash, reason }
 TakeDeleted         { take, reason }
+JobSubmitted        { job, base revision, transcripts in context }
 Typed               { field, at, text }
 ProposalMade        { kind: place | revise | review | question, claims: [said(take|typed, span) | added(reason)] }
 Accepted            { proposal }
@@ -126,6 +127,20 @@ ClosedNoChange      { reason }
   restart.
 - **Would reverse this:** any operation that can only be done by changing or removing an earlier
   event. The experiment bead checks the mock-up scenarios for one.
+
+### Job protocol
+
+Model-checked in [`spec/tla/`](spec/tla/README.md); `spec/tla/check.sh` passes only if the
+design passes and each rule's removal is caught.
+
+- `JobSubmitted` is appended before the job is sent to celld, and `vbd` re-sends every submitted
+  job without a result when it restarts.
+- celld creates a job id once; a repeated submit is ignored.
+- A result for a job that already has one is acknowledged, not appended; the ack is sent only
+  after the result is in the thread.
+- A proposal can be accepted only if it was computed against the current revision and every
+  transcript it used is still live; otherwise it is shown as stale.
+- `vbd` runs on one machine and is the only writer of `~/briefs`.
 
 ## Speech-to-text and the model's lifetime
 
@@ -255,6 +270,7 @@ Operator words, 2026-10-25:
   cm-e2y … Smallest move stays."
 - "OK for one thread.jsonl per idea." "Regarding deletion, sometimes the idea needs a rephrasing,
   or to be deleted because transcipt is wrong."
+- "one machine only, install tools locally" "ok model it now"
 
 ## Open questions
 
