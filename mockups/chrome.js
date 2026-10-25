@@ -1,6 +1,4 @@
-// Draws the shared desktop around a mock-up: the Omarchy shell bar, two dim terminals, the scrim
-// and the page switcher. Each page sets data-time, data-widget and data-page on <body>.
-const PAGES = ["workspace", "recording", "revise", "review", "task", "history", "hidden"];
+const PAGES = ["workspace", "recording", "revise", "review", "handoff", "history", "hidden"];
 const d = document.body.dataset;
 const desk = document.querySelector(".desktop");
 desk.insertAdjacentHTML("afterbegin", `
@@ -10,14 +8,14 @@ desk.insertAdjacentHTML("afterbegin", `
     <div class="right"><span>󰒄</span><span>󱙺</span>${d.widget}<span>󰂯</span><span>󰖩</span><span>󰋋</span><span>󰐥</span></div>
   </div>
   ${d.noTiles === undefined ? `<div class="tiles">
-<div class="tile"><span class="g">herdr · unikernel · w9:p1 claude</span>
-● Booting the hello-world unikernel under QEMU
+<div class="tile"><span class="g">herdr · voice-brief · w3:p1 claude</span>
+● Running the spike validator tests
   Ran 1 shell command
 
-~/Projects/mine/unikernel  main  Opus 5.5</div>
-<div class="tile">herdr · unikernel · w9:p8 claude
+~/Projects/mine/voice-brief  main  Opus 5.5</div>
+<div class="tile">herdr · voice-brief · w3:p2 shell
 
-GPU driver reset without restart …
+$ br ready
 
 ~  Opus 5.5</div>
   </div>` : ""}

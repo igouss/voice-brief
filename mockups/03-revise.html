@@ -6,61 +6,51 @@
 <title>voice-brief · 3 Revise</title>
 <link rel="stylesheet" href="desktop.css">
 </head>
-<body data-page="revise" data-time="Sunday 06:23" data-widget='<span class="vb warm">󰍬 ✓ 1 ready</span>'>
+<body data-page="revise" data-time="Sunday 08:13" data-widget='<span class="vb warm">󰍬 ✓ 1 ready</span>'>
 <div class="desktop">
   <div class="float">
     <div class="status">
       <span class="title">voice-brief</span>
-      <span>revise · <span class="acc">idea 2 · Serial console first</span> · r5 → proposed r6</span>
-      <span class="dim">from take 0015 (0:14) · claude via celld · 9.8 s</span>
+      <span>revise · <span class="acc">vbd owns the jobs · Would reverse it</span> · r7 → proposed r8</span>
+      <span class="dim">from take 0022 (0:14) · claude via celld · 8.1 s</span>
       <span class="sp"></span><span class="chip green">● loaded 9:51</span>
     </div>
 
     <div class="row grow">
-      <div class="col" style="width:420px">
+      <div class="col" style="width:440px">
         <div class="pane" style="flex:0 0 auto">
-          <span class="t">Take 0015 · what you said</span>
+          <span class="t">Take 0022 · what you said</span>
           <div class="player"><span class="acc">▶</span><div class="bar"><i style="width:0%"></i></div><span class="dim">0:00 / 0:14</span></div>
-          <p class="quote">Actually drop the polling bit, I don't care how it prints. Just say the panic handler has to print to serial, and that's how we know it booted.</p>
+          <p class="quote">If I quit and come back and a job is gone or done twice, or if the bar still goes stale, then it was the wrong move, put it back in the TUI.</p>
         </div>
         <div class="pane grow">
-          <span class="t">Current · r5</span>
-<div class="editor soft">Bring up the 16550 UART before anything else, so every later stage
-can print. Polling only; no interrupts until the IDT exists.
-
-The console is the only output: no framebuffer in this brief.
-A panic must still reach the serial port, even before the heap.
-
-Out of scope: keyboard input, VGA text mode.</div>
+          <span class="t">Current · r7</span>
+          <div class="field-block"><div class="fh">Smallest move</div><p class="soft">Move the job queue and the state.json writer into vbd, a user service; vb becomes a client over a unix socket. vbd is the only writer of git.</p></div>
+          <div class="field-block empty"><div class="fh">Would reverse it</div><p class="dim">empty</p></div>
         </div>
       </div>
 
       <div class="pane focus grow">
-        <span class="t">Proposed r6 <span class="r">diff against r5</span></span>
-<div class="editor">Bring up the 16550 UART before anything else, so every later stage
-can print.<span class="del"> Polling only; no interrupts until the IDT exists.</span>
-
-The console is the only output: no framebuffer in this brief.
-A panic must still reach the serial port, even before the heap.
-<span class="ins">Booted means: the kernel prints a banner to serial and the panic handler</span>
-<span class="ins">prints to serial too.</span><span class="added"> QEMU's -serial stdio is enough to check it.</span>
-
-Out of scope: keyboard input, VGA text mode.</div>
+        <span class="t">Proposed r8 · Would reverse it <span class="r">diff against r7</span></span>
+<div class="editor"><span class="ins">After quitting and reopening the TUI while jobs run, a job is lost</span>
+<span class="ins">or applied twice, or the bar still shows stale state.</span><span class="added"> Checked by</span>
+<span class="added">killing vb mid-job in a test.</span></div>
         <div style="margin-top:14px">
-          <p><span class="tag said">said</span> removed "Polling only…" ← "drop the polling bit"</p>
-          <p><span class="tag said">said</span> "Booted means…" ← "that's how we know it booted"</p>
-          <p><span class="tag added">added ⁺</span> "QEMU's -serial stdio…": nothing in your takes says this</p>
+          <p><span class="tag said">said</span> "a job is lost or applied twice" ← "a job is gone or done twice"</p>
+          <p><span class="tag said">said</span> "the bar still shows stale state" ← "if the bar still goes stale"</p>
+          <p><span class="tag added">added ⁺</span> "Checked by killing vb mid-job in a test": nothing in your takes says this</p>
+          <p class="dim" style="margin-top:8px">"put it back in the TUI" is how to reverse, not what would show it: kept in the take, not placed.</p>
         </div>
       </div>
     </div>
 
     <div class="keys">
-      <span><b>y</b> accept → commit r6</span><span><b>Y</b> accept without the ⁺ parts</span><span><b>e</b> edit, then accept</span>
-      <span><b>x</b> reject (kept in reviews/)</span><span><b>␣</b> say more (new take, revise again)</span><span><b>Esc</b> back</span>
+      <span><b>y</b> accept → commit r8</span><span><b>Y</b> accept without the ⁺ parts</span><span><b>e</b> edit, then accept</span>
+      <span><b>x</b> reject (kept in reviews/)</span><span><b>␣</b> say more</span><span><b>Esc</b> back</span>
     </div>
   </div>
 
-  <div class="caption"><b>3 · Revise.</b> A new take plus the current revision produce a proposed revision, shown as a diff. Each change names the words it came from, and anything new is marked ⁺. Accepting commits r6 with the trailer <code>Takes: 0015</code>.</div>
+  <div class="caption"><b>3 · Revise a field.</b> Your recording plus the current revision produce a proposed revision of one field, shown as a diff. Each change names the words it came from; anything new is marked ⁺. Accepting commits r8 with the trailers <code>Field: would-reverse-it</code> and <code>Takes: 0022</code>.</div>
 </div>
 <script src="chrome.js"></script>
 </body>

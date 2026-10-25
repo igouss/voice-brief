@@ -3,72 +3,70 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>voice-brief · 4 Review and grade</title>
+<title>voice-brief · 4 Sort and review</title>
 <link rel="stylesheet" href="desktop.css">
 </head>
-<body data-page="review" data-time="Sunday 06:27" data-widget='<span class="vb busy">󰍬 reviewing…</span>'>
+<body data-page="review" data-time="Sunday 08:20" data-widget='<span class="vb busy">󰍬 reviewing…</span>'>
 <div class="desktop">
   <div class="float">
     <div class="status">
       <span class="title">voice-brief</span>
-      <span>AI review · <span class="acc">idea 4 · Acceptance</span> · r1</span>
+      <span>sort and review · <span class="acc">Isolate spike calls</span> · r2</span>
       <span class="sp"></span>
-      <span class="chip yellow">celld job 0007 · running 6 s</span>
+      <span class="chip yellow">celld job 0011 · running 5 s</span>
     </div>
 
     <div class="row grow">
       <div class="col" style="width:470px">
-        <div class="pane focus" style="flex:0 0 auto">
-          <span class="t">Review prompt <span class="r">editable · ␣ speak your instruction</span></span>
-<div class="editor"><span class="dim">[template: review-task v1]</span>
-Review the idea below against the rubric. For each gap, propose one
-change. Tag each proposal said (quote the take) or added.
-<span class="dim">[context: idea 4 r1 · takes 0009, 0012 · deleted takes excluded]</span>
-
-<span class="acc">My instruction:</span> be harsh about anything I can't check by
-running something.<span class="caret"></span></div>
+        <div class="pane" style="flex:0 0 auto">
+          <span class="t">Unsorted · take 0030 · 0:41</span>
+          <p class="quote">The spike runs claude -p and that loads my whole CLAUDE.md, which is full of rules about forces and weakest parts, so the model gets coached. The real job on celld won't have it. I want the spike to see only the prompt. The validator and the corpus shouldn't change.</p>
         </div>
-        <div class="pane grow">
-          <span class="t">Grade · r1 <span class="r">rubric task v1</span></span>
-          <div style="display:flex;gap:10px;align-items:baseline"><span class="score">3/8</span><span class="dim">5 gaps</span></div>
-          <ul class="grade">
-            <li><span class="ok">✓</span>Says what, not how<span class="who">AI</span></li>
-            <li><span class="bad">✗</span>Each criterion is runnable<span class="who">AI</span><span class="why">"works reliably" can't be run</span></li>
-            <li><span class="bad">✗</span>Zero / one / many cases<span class="who">AI</span><span class="why">only the happy path</span></li>
-            <li><span class="warn">◐</span>Names the gate that proves it<span class="who">AI</span><span class="why">QEMU named, but no command</span></li>
-            <li><span class="ok">✓</span>Has an id<span class="who">code</span></li>
-            <li><span class="bad">✗</span>Operator words, dated<span class="who">code</span></li>
-          </ul>
+        <div class="pane focus grow">
+          <span class="t">Review prompt <span class="r">editable · ␣ speak your instruction</span></span>
+<div class="editor"><span class="dim">[template: sort-and-review v1 · field definitions from idea.md]</span>
+Place the unsorted words into the five fields. Tag each placement
+said (quote the take) or added. For a field my words leave empty,
+ask one question; never fill it.
+<span class="dim">[context: r2 · takes 0028–0030 · deleted takes excluded]</span>
+
+<span class="acc">My instruction:</span> push on the force, it has to be something
+that already happened.<span class="caret"></span></div>
         </div>
       </div>
 
       <div class="pane grow">
         <span class="t">Proposals <span class="r">arriving · y accept · x reject · e edit</span></span>
         <div class="prop sel">
-          <div class="hd"><span class="h">1</span><span class="tag said">said</span><span class="dim">take 0012: "it has to boot every time"</span></div>
-          <p>Replace "works reliably" with: <i>boots to the banner in 20 of 20 QEMU runs</i>.</p>
-          <p class="dim">fixes: Each criterion is runnable</p>
+          <div class="hd"><span class="h">1</span><span class="acc">→ Weakest part</span><span class="tag said">said</span><span class="dim">"The spike runs claude -p and that loads my whole CLAUDE.md"</span></div>
+          <p>The spike's model calls run through <code>claude -p</code>, which loads <code>~/.claude/CLAUDE.md</code>.</p>
         </div>
         <div class="prop">
-          <div class="hd"><span class="h">2</span><span class="tag added">added ⁺</span></div>
-          <p>Add a failure case: <span class="added">a deliberate panic before heap init still prints to serial</span>.</p>
-          <p class="dim">fixes: Zero / one / many cases</p>
+          <div class="hd"><span class="h">2</span><span class="acc">→ Force</span><span class="tag said">said</span><span class="tag added">added ⁺</span></div>
+          <p>The spike must measure the production job, which runs with an explicit prompt only; <span class="added">observed: a canary run quoted cm-la6 back</span>.</p>
+          <p class="dim">the observation is mine: you haven't run the canary yet, so this needs evidence before it passes</p>
         </div>
         <div class="prop">
-          <div class="hd"><span class="h">3</span><span class="tag added">added ⁺</span><span class="tag rej">your decision</span></div>
-          <p>Name the gate: <span class="added"><code>just qemu-smoke</code></span>, or tell me what the command is.</p>
-          <p class="dim">The command doesn't exist yet, so I'm asking rather than inventing it.</p>
+          <div class="hd"><span class="h">3</span><span class="acc">→ Preserves</span><span class="tag said">said</span><span class="dim">"The validator and the corpus shouldn't change."</span></div>
+          <p>The validator and the corpus.</p>
         </div>
-        <p class="dim" style="margin-top:10px">⋯ waiting for proposals 4 and 5</p>
+        <div class="prop">
+          <div class="hd"><span class="h">4</span><span class="warn">? Smallest move</span><span class="tag rej">empty</span></div>
+          <p class="ask">You said the spike should see only the prompt, but not how. What is the one change: a separate config dir, or calling the API directly?</p>
+        </div>
+        <div class="prop">
+          <div class="hd"><span class="h">5</span><span class="warn">? Would reverse it</span><span class="tag rej">empty</span></div>
+          <p class="ask">What result would show the isolation was a mistake?</p>
+        </div>
       </div>
     </div>
 
     <div class="keys">
-      <span><b>↵</b> send review</span><span><b>␣</b> speak your instruction</span><span><b>y/x/e</b> on proposals</span><span><b>g</b> regrade</span><span><b>Esc</b> back (job continues)</span>
+      <span><b>↵</b> send review</span><span><b>␣</b> answer the selected question by voice</span><span><b>y/x/e</b> on proposals</span><span><b>g</b> regrade</span><span><b>Esc</b> back (job continues)</span>
     </div>
   </div>
 
-  <div class="caption"><b>4 · AI review and grade.</b> The review prompt is visible and editable, and you can type or speak your instruction. Proposals arrive as the job runs on celld, each tied to the rubric gap it fixes. Leaving with Esc doesn't stop the job.</div>
+  <div class="caption"><b>4 · Sort and review.</b> The AI places Unsorted words into fields, tagging each placement with the words it came from, and asks one question for each field still empty. The review prompt is visible and editable; you can type or speak your instruction. Esc leaves the job running.</div>
 </div>
 <script src="chrome.js"></script>
 </body>

@@ -1,4 +1,3 @@
-/* Everforest, from ~/.local/state/omarchy/current/theme/colors.toml */
 :root {
   --accent: #7fbbb3; --selection: #3d484d; --muted: #475258;
   --bg: #2d353b; --bg-dark: #21272c; --bg-darker: #181d20; --bg-light: #343f44;
@@ -15,7 +14,6 @@ body {
   overflow: hidden;
 }
 
-/* ---------- desktop ---------- */
 .desktop { position: relative; width: 100vw; height: 100vh; background: var(--bg); }
 .waybar {
   height: 24px; background: var(--bar); color: var(--bar-fg);
@@ -39,7 +37,6 @@ body {
 
 .scrim { position: absolute; inset: 24px 0 0 0; background: rgba(15, 18, 20, .55); }
 
-/* ---------- floating window ---------- */
 .float {
   position: absolute; left: 50%; top: calc(50% + 12px); transform: translate(-50%, -50%);
   width: min(1320px, 92vw); height: min(780px, 88vh);
@@ -48,7 +45,6 @@ body {
   display: flex; flex-direction: column; padding: 6px 8px; gap: 6px;
 }
 
-/* top status line */
 .status { display: flex; gap: 14px; align-items: center; padding: 2px 4px; white-space: nowrap; }
 .status .title { color: var(--accent); font-weight: 700; }
 .status .sp { flex: 1; }
@@ -56,7 +52,6 @@ body {
 .chip.green { color: var(--green); } .chip.red { color: var(--red); } .chip.yellow { color: var(--yellow); }
 .chip.solid-red { background: var(--red); color: var(--bg-darker); font-weight: 700; }
 
-/* ratatui-like blocks */
 .row { display: flex; gap: 6px; min-height: 0; }
 .grow { flex: 1; }
 .col { display: flex; flex-direction: column; gap: 6px; min-height: 0; min-width: 0; }
@@ -72,7 +67,6 @@ body {
 .pane.focus > .t { color: var(--accent); font-weight: 700; }
 .pane > .t .r { color: var(--fg-dark); font-weight: 400; }
 
-/* lists */
 .list { list-style: none; }
 .list li { padding: 1px 6px; display: flex; gap: 8px; white-space: nowrap; overflow: hidden; }
 .list li .n { color: var(--fg-dark); width: 1.5em; text-align: right; }
@@ -82,7 +76,6 @@ body {
 .list li.new { color: var(--fg-light); }
 .list li .rec { color: var(--red); }
 
-/* text */
 p + p { margin-top: 8px; }
 .dim { color: var(--fg-dark); } .soft { color: var(--fg-light); }
 .acc { color: var(--accent); } .ok { color: var(--green); } .warn { color: var(--yellow); }
@@ -98,7 +91,6 @@ p + p { margin-top: 8px; }
 .cursor { display: inline-block; width: .6em; background: var(--fg); animation: pulse 1s steps(1) infinite; }
 code { color: var(--cyan); }
 
-/* pipeline */
 .pipe { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
 .stage { padding: 0 7px; border-radius: 3px; background: var(--bg-light); color: var(--fg-dark); }
 .stage.done { color: var(--green); }
@@ -110,16 +102,13 @@ code { color: var(--cyan); }
 .bar.rec > i { background: var(--red); }
 .bar.ok > i { background: var(--green); }
 
-/* waveform */
 .wave { display: flex; gap: 2px; align-items: center; height: 46px; }
 .wave i { flex: 1; background: var(--red); border-radius: 1px; opacity: .85; }
 .wave.past i { background: var(--fg-dark); }
 
-/* key hints */
 .keys { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 2px 4px; color: var(--fg-light); white-space: nowrap; }
 .keys b { color: var(--accent); }
 
-/* proposals */
 .prop { border: 1px solid var(--muted); border-radius: 3px; padding: 6px 8px; }
 .prop + .prop { margin-top: 6px; }
 .prop.sel { border-color: var(--accent); background: rgba(127,187,179,.06); }
@@ -131,7 +120,6 @@ code { color: var(--cyan); }
 .tag.acc { background: rgba(127,187,179,.18); color: var(--accent); }
 .tag.rej { background: rgba(230,126,128,.15); color: var(--red); }
 
-/* timeline */
 .tl { list-style: none; position: relative; padding-left: 16px; }
 .tl::before { content: ""; position: absolute; left: 5px; top: 4px; bottom: 4px; width: 1px; background: var(--muted); }
 .tl li { position: relative; padding: 2px 6px; }
@@ -141,7 +129,6 @@ code { color: var(--cyan); }
 .tl li.ai::before { border-color: var(--magenta); }
 .tl li.sel { background: var(--selection); }
 
-/* caption under the mockup */
 .caption {
   position: absolute; left: 12px; bottom: 10px; max-width: 520px; padding: 8px 10px;
   background: rgba(24,29,32,.92); border: 1px solid var(--muted); border-radius: 4px;
@@ -156,7 +143,6 @@ nav.mocks a {
 }
 nav.mocks a.on { border-color: var(--accent); color: var(--accent); }
 
-/* ---------- v2 additions ---------- */
 .proj { color: var(--green); }
 .editor { font: inherit; white-space: pre-wrap; }
 .editor .ln { color: var(--fg-dark); display: inline-block; width: 2.2em; user-select: none; }
@@ -201,3 +187,14 @@ nav.mocks a.on { border-color: var(--accent); color: var(--accent); }
 .herdr .side .w.on { background: var(--selection); }
 .herdr .side .meta { display: block; font-size: 11px; padding-left: 12px; }
 .herdr .main { padding: 8px 12px; color: var(--fg-dark); white-space: pre; overflow: hidden; }
+
+.fields { list-style: none; }
+.fields li { display: grid; grid-template-columns: 16px 1fr auto; gap: 6px; padding: 2px 6px; }
+.fields li.sel { background: var(--selection); }
+.fields li .st { text-align: center; }
+.field-block { margin-bottom: 10px; }
+.field-block .fh { color: var(--accent); font-weight: 700; display: flex; gap: 8px; }
+.field-block .fh .g { margin-left: auto; font-weight: 400; }
+.field-block.empty .fh { color: var(--yellow); }
+.field-block.cur { border-left: 2px solid var(--accent); padding-left: 8px; margin-left: -10px; }
+.ask { border: 1px dashed var(--yellow); border-radius: 3px; padding: 4px 8px; color: var(--yellow); }

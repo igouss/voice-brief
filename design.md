@@ -2,8 +2,7 @@
 
 Develop an idea by voice and keyboard, with AI help, into a task prompt for an agent, and hand
 the prompt to an agent in the project you are working on. The problem, the prompt format and its
-lineage are in [`idea.md`](idea.md). Mock-ups: [`mockups/01-workspace.html`](mockups/01-workspace.html)
-(drawn before the format was fixed; they show free-form ideas, not the five fields).
+lineage are in [`idea.md`](idea.md). Mock-ups: [`mockups/01-workspace.html`](mockups/01-workspace.html).
 
 Status: design. Nothing is built. Claims marked *checked* were run on this machine on
 2026-10-25; everything else is intended behaviour.

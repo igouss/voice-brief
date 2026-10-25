@@ -6,88 +6,102 @@
 <title>voice-brief · 1 Workspace</title>
 <link rel="stylesheet" href="desktop.css">
 </head>
-<body data-page="workspace" data-time="Sunday 06:20" data-widget='<span class="vb warm">󰍬 7:42</span>'>
+<body data-page="workspace" data-time="Sunday 08:10" data-widget='<span class="vb warm">󰍬 7:42</span>'>
 <div class="desktop">
   <div class="float">
     <div class="status">
       <span class="title">voice-brief</span>
-      <span>project <span class="proj">unikernel</span> <span class="dim">· herdr w9 · main</span></span>
-      <span>brief <span class="acc">Boot path hand-off</span> <span class="dim">· task · open</span></span>
+      <span>project <span class="proj">voice-brief</span> <span class="dim">· herdr w3 · main</span></span>
+      <span>idea <span class="acc">vbd owns the jobs</span> <span class="dim">· r6 · open</span></span>
       <span class="sp"></span>
       <span class="chip green">● parakeet loaded · unload in 7:42</span>
       <span class="chip">vbd idle · 0 jobs</span>
     </div>
 
     <div class="row grow">
-      <div class="col" style="width:260px">
+      <div class="col" style="width:270px">
         <div class="pane" style="flex:0 0 auto">
-          <span class="t">Briefs · unikernel <span class="r">b</span></span>
+          <span class="t">Ideas · voice-brief <span class="r">b</span></span>
           <ul class="list">
-            <li class="sel">Boot path hand-off<span class="m">open</span></li>
-            <li>virtio-net driver<span class="m">handed off</span></li>
-            <li>Memory map rules<span class="m">archived</span></li>
+            <li class="sel">vbd owns the jobs<span class="m">r6</span></li>
+            <li>Git is the record<span class="m">handed off</span></li>
+            <li>Isolate spike calls<span class="m">r2</span></li>
           </ul>
         </div>
         <div class="pane focus grow">
-          <span class="t">Ideas <span class="r">j/k · n new</span></span>
-          <ul class="list">
-            <li><span class="n">1</span>Goal: boot to shell<span class="m">r3</span></li>
-            <li class="sel"><span class="n">2</span>Serial console first<span class="m">r5<span class="dirty">*</span></span></li>
-            <li><span class="n">3</span>No allocator yet<span class="m">r2</span></li>
-            <li><span class="n">4</span>Acceptance<span class="m">r1</span></li>
+          <span class="t">Fields <span class="r">j/k</span></span>
+          <ul class="fields">
+            <li><span class="st ok">✓</span>Weakest part<span class="dim">2</span></li>
+            <li><span class="st ok">✓</span>Force<span class="dim">3</span></li>
+            <li class="sel"><span class="st warn">◐</span>Smallest move<span class="dim dirty">*</span></li>
+            <li><span class="st ok">✓</span>Preserves<span class="dim">1</span></li>
+            <li><span class="st bad">○</span>Would reverse it<span class="dim">empty</span></li>
+            <li><span class="st soft">·</span>Unsorted<span class="dim">1 take</span></li>
           </ul>
-          <p class="dim" style="margin-top:10px">␣ records into <span class="acc">idea 2</span> · a append at cursor · r revise</p>
+          <p class="dim" style="margin-top:10px">␣ records into <span class="acc">Smallest move</span> · a append at cursor · r revise · S sort Unsorted</p>
         </div>
       </div>
 
       <div class="pane focus grow">
-        <span class="t">Idea 2 · Serial console first <span class="r">r5 · <span class="dirty">unsaved</span> · s save as r6 · u undo</span></span>
-<div class="editor"><span class="ln">1</span>Bring up the 16550 UART before anything else, so every later stage
-<span class="ln">2</span>can print. Polling only; no interrupts until the IDT exists.
-<span class="ln">3</span>
-<span class="ln">4</span>The console is the only output: no framebuffer in this brief.
-<span class="ln">5</span><span class="ins">A panic must still reach the serial port, even before the heap.</span><span class="caret"></span>
-<span class="ln">6</span>
-<span class="ln">7</span>Out of scope: keyboard input, VGA text mode.</div>
-        <p class="dim" style="position:absolute;bottom:8px;left:10px">line 5 appended from take 0014 at the cursor · not saved yet</p>
+        <span class="t">vbd owns the jobs <span class="r">r6 · <span class="dirty">unsaved</span> · s save as r7</span></span>
+        <div class="field-block">
+          <div class="fh">Weakest part<span class="g ok">✓</span></div>
+          <p><code>vb</code>, the TUI process, holds the celld job subscription and writes <code>state.json</code>; closing the window drops both.</p>
+        </div>
+        <div class="field-block">
+          <div class="fh">Force<span class="g ok">✓</span></div>
+          <p>The window must be closable, but the bar and Herdr must keep showing job progress. Observed: in the mock-up review the bar went stale after quitting.</p>
+        </div>
+        <div class="field-block cur">
+          <div class="fh">Smallest move<span class="g warn">◐ swappable?</span></div>
+<div class="editor">Move the job queue and the state.json writer into vbd, a user service;
+vb becomes a client over a unix socket.<span class="ins"> vbd is the only writer of git.</span><span class="caret"></span></div>
+        </div>
+        <div class="field-block">
+          <div class="fh">Preserves<span class="g ok">✓</span></div>
+          <p>Keys and screens of the TUI; git as the only record; nothing written without my accept.</p>
+        </div>
+        <div class="field-block empty">
+          <div class="fh">Would reverse it<span class="g">○ empty</span></div>
+          <p class="ask">AI asks: what would you watch for that shows moving jobs into vbd was wrong?</p>
+        </div>
       </div>
 
-      <div class="col" style="width:380px">
+      <div class="col" style="width:370px">
         <div class="pane" style="flex:0 0 auto">
-          <span class="t">Takes · idea 2 <span class="r">↵ play · x delete</span></span>
+          <span class="t">Takes · Smallest move <span class="r">↵ play · x delete</span></span>
           <ul class="list">
-            <li class="sel"><span class="soft">06:18</span>append<span class="m">0:07 ✓</span></li>
-            <li><span class="soft">06:11</span>revise<span class="m">0:19 ✓</span></li>
-            <li><span class="soft">06:04</span>new<span class="m">0:31 ✓</span></li>
-            <li class="deleted"><span>05:58</span>new<span class="m">0:12 deleted</span></li>
+            <li class="sel"><span class="soft">08:09</span>append<span class="m">0:05 ✓</span></li>
+            <li><span class="soft">08:02</span>revise<span class="m">0:18 ✓</span></li>
+            <li class="deleted"><span>07:58</span>new<span class="m">0:12 deleted</span></li>
           </ul>
         </div>
         <div class="pane" style="flex:0 0 auto">
-          <span class="t">Take 0014 · 06:18 <span class="r">verbatim</span></span>
-          <div class="player"><span class="acc">▶</span><div class="bar"><i style="width:43%"></i></div><span class="dim">0:03 / 0:07</span></div>
-          <p class="quote">A panic must still reach the serial port, even before the heap.</p>
+          <span class="t">Take 0021 · 08:09 <span class="r">verbatim</span></span>
+          <div class="player"><span class="acc">▶</span><div class="bar"><i style="width:40%"></i></div><span class="dim">0:02 / 0:05</span></div>
+          <p class="quote">and vbd is the only one that writes to git</p>
         </div>
         <div class="pane grow">
-          <span class="t">Grade · r5 <span class="r">rubric task v1 · g regrade</span></span>
-          <div style="display:flex;gap:10px;align-items:baseline"><span class="score">6/8</span><span class="dim">2 gaps</span></div>
+          <span class="t">Grade · r6 <span class="r">rubric from idea.md · g regrade</span></span>
           <ul class="grade">
-            <li><span class="ok">✓</span>States what, not how<span class="who">AI</span></li>
-            <li><span class="ok">✓</span>Scope and out-of-scope<span class="who">AI</span></li>
-            <li><span class="warn">◐</span>Acceptance is observable<span class="who">AI</span><span class="why">"can print" — say what output proves it</span></li>
-            <li><span class="bad">✗</span>Operator words, dated<span class="who">code</span><span class="why">no Operator decision block yet</span></li>
+            <li><span class="ok">✓</span>Weakest part checkable<span class="who">AI</span></li>
+            <li><span class="ok">✓</span>Force cites an observation<span class="who">AI</span></li>
+            <li><span class="warn">◐</span>Move follows from the force<span class="who">AI</span><span class="why">"unix socket" could be any IPC; the force only needs a process that outlives the window</span></li>
+            <li><span class="bad">✗</span>Would reverse it present<span class="who">code</span></li>
+            <li><span class="ok">✓</span>Your words, dated<span class="who">code</span></li>
           </ul>
         </div>
       </div>
     </div>
 
     <div class="keys">
-      <span><b>␣</b> record</span><span><b>a</b> append at cursor</span><span><b>r</b> revise</span><span><b>s</b> save revision</span>
-      <span><b>n</b> new idea</span><span><b>R</b> AI review</span><span><b>g</b> grade</span><span><b>T</b> task builder</span>
+      <span><b>␣</b> record into field</span><span><b>a</b> append at cursor</span><span><b>r</b> revise field</span><span><b>s</b> save revision</span>
+      <span><b>S</b> sort Unsorted</span><span><b>R</b> AI review</span><span><b>n</b> new idea</span><span><b>H</b> hand off</span>
       <span><b>h</b> history</span><span><b>U</b> unload model</span><span><b>q</b> hide</span>
     </div>
   </div>
 
-  <div class="caption"><b>1 · Workspace.</b> The project comes from Herdr (focused workspace <i>unikernel</i>). The editor is built in, and an append lands at the cursor. Takes can be played back or deleted; a deleted take stays in git. The grade beside the idea marks which items code checks and which the AI judges.</div>
+  <div class="caption"><b>1 · Workspace.</b> An idea is a task prompt with five fields. A recording goes into the selected field; Unsorted holds words not yet placed. An empty field gets a question from the AI, never a guess. The grade uses the field definitions in <code>idea.md</code>.</div>
 </div>
 <script src="chrome.js"></script>
 </body>

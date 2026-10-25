@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>voice-brief · 5 Hand-off</title>
+<link rel="stylesheet" href="desktop.css">
+</head>
+<body data-page="handoff" data-time="Sunday 08:31" data-widget='<span class="vb warm">󰍬 4:10</span>'>
+<div class="desktop">
+  <div class="float">
+    <div class="status">
+      <span class="title">voice-brief</span>
+      <span>hand off · <span class="acc">vbd owns the jobs</span> · r8</span>
+      <span>project <span class="proj">voice-brief</span></span>
+      <span class="sp"></span>
+      <span class="chip green">grade 5/5</span>
+    </div>
+
+    <div class="row grow">
+      <div class="pane" style="width:290px">
+        <span class="t">Checklist · r8</span>
+        <ul class="fields">
+          <li><span class="st ok">✓</span>Weakest part<span class="dim">checkable</span></li>
+          <li><span class="st ok">✓</span>Force<span class="dim">observed</span></li>
+          <li><span class="st ok">✓</span>Smallest move<span class="dim">follows</span></li>
+          <li><span class="st ok">✓</span>Preserves</li>
+          <li><span class="st ok">✓</span>Would reverse it<span class="dim">observable</span></li>
+          <li><span class="st ok">✓</span>Your words, dated</li>
+        </ul>
+        <p class="dim" style="margin-top:10px">1 ⁺ claim still in the prompt: shown to the agent as yours unless you remove it</p>
+      </div>
+
+      <div class="pane focus grow">
+        <span class="t">Prompt · r8 <span class="r">what the agent receives · e edit</span></span>
+<pre style="font:inherit;white-space:pre-wrap"><span class="h">## Weakest part</span>
+vb, the TUI process, holds the celld job subscription and writes state.json;
+closing the window drops both.
+
+<span class="h">## Force</span>
+The window must be closable, but the bar and Herdr must keep showing job
+progress. Observed: the bar went stale after quitting.
+
+<span class="h">## Smallest move</span>
+Move the job queue and the state.json writer into vbd, a user service; vb
+becomes a client over a unix socket. vbd is the only writer of git.
+
+<span class="h">## Preserves</span>
+Keys and screens of the TUI; git as the only record; nothing written without
+my accept.
+
+<span class="h">## Would reverse it</span>
+After quitting and reopening the TUI while jobs run, a job is lost or applied
+twice, or the bar still shows stale state. <span class="added">Checked by killing vb mid-job.</span>
+
+<span class="h">## Operator decision</span>
+<span class="soft">2026-10-25, my words verbatim (7 takes):</span>
+<span class="quote" style="display:block">08:02 "the window has to close but the bar should still show me when it's done…"</span></pre>
+      </div>
+
+      <div class="pane" style="width:330px">
+        <span class="t">Hand off r8</span>
+        <ul class="list">
+          <li class="sel"><span class="kbd">N</span>New agent in voice-brief</li>
+          <li><span class="kbd">P</span>Paste into selected agent</li>
+          <li><span class="kbd">c</span>Copy</li>
+          <li><span class="kbd">i</span>Save to inbox</li>
+        </ul>
+        <div class="pane" style="margin-top:14px">
+          <span class="t">N · new agent</span>
+          <p class="soft">workspace <span class="proj">w3 voice-brief</span> · cwd ~/Projects/mine/voice-brief</p>
+          <p>kind <span class="acc">claude</span> <span class="dim">· pi · codex</span></p>
+          <p>name <span class="acc">idea-vbd-jobs</span></p>
+          <p class="dim" style="margin-top:6px">split, start the agent, send r8, then follow its state</p>
+        </div>
+        <div class="pane" style="margin-top:14px">
+          <span class="t">P · agents in w3</span>
+          <ul class="list">
+            <li class="sel">w3:p1 claude · idle<span class="m">herdr focus</span></li>
+            <li>w3:p4 pi · working</li>
+          </ul>
+          <p class="dim" style="margin-top:6px">pasted without Enter; you submit it</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="keys">
+      <span><b>e</b> edit prompt</span><span><b>N</b> new agent</span><span><b>P</b> paste to selected</span><span><b>c</b> copy</span><span><b>g</b> regrade</span><span><b>Esc</b> back</span>
+    </div>
+  </div>
+
+  <div class="caption"><b>5 · Hand-off.</b> The prompt is the five fields plus your words verbatim with the date. It goes to a new agent started in the project's Herdr workspace, or is pasted into the agent you select (Herdr's focused agent by default). A ⁺ claim left in is flagged before it goes.</div>
+</div>
+<script src="chrome.js"></script>
+</body>
+</html>
