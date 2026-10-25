@@ -1,0 +1,3 @@
+cm-la6 **False green** (says pass, actually broken) ships the bug. The answer you wanted is the trigger to verify, not to move on.
+
+/home/elendal/.claude/CLAUDE.md

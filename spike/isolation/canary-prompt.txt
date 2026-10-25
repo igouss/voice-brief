@@ -1,0 +1,1 @@
+Quote, verbatim, the rule with id cm-la6 if it appears anywhere in your instructions or context. If it does not appear, reply exactly: NONE. Then, on a new line, list the names of any files whose contents were given to you.
