@@ -144,6 +144,24 @@ design passes and each rule's removal is caught.
 
 ## Speech-to-text and the model's lifetime
 
+**Superseded on 2026-10-25** (see Decisions): ideas are dictated with Claude Code's `/voice`,
+not voxtype. What follows records the voxtype design until the rest of this document is redrawn.
+What the switch changes, as far as checked:
+
+- Capture is a prompt in a Claude Code session started with `DEBUG=1`. The `UserPromptSubmit`
+  hook in `proto/vb_hook.py` sees a dictated prompt by the debug-log line
+  `[voice] Injecting transcript (N chars)` since the last submit (*checked* live, one dictated and
+  one typed prompt). That line is undocumented: a Claude Code update can drop it, and then every
+  dictation would silently count as typed. The hook needs a verifier before it is trusted.
+- You review the text in Claude Code's input box before Enter, which serves as the approval step.
+- No audio is kept: Claude Code doesn't save the recording. Takes cannot be played back
+  (see Open questions).
+- Model residency and the 10-minute unload no longer apply; transcription runs in Anthropic's
+  cloud, not on this CPU.
+- The dictated prompt also reaches the agent in that session, which replies to it.
+- The session's working directory names the project, so Herdr resolution may not be needed for
+  capture.
+
 voxtype 1.1.1 has no idle timeout for its main model (*checked*: only
 `cold_model_timeout_secs`, for secondary models, and `on_demand_loading`, which unloads at once).
 So `vbd` controls the daemon:
@@ -272,12 +290,15 @@ Operator words, 2026-10-25:
 - "OK for one thread.jsonl per idea." "Regarding deletion, sometimes the idea needs a rephrasing,
   or to be deleted because transcipt is wrong."
 - "one machine only, install tools locally" "ok model it now"
+- "I think this workflow actually might work well. We don't need the dictation up from the vox we
+  can install, not install, just use the dictation that the Claude Code provides. It seems to be
+  pretty accurate and fast."
 
 ## Open questions
 
 1. celld target: the oracle-arm node (survives the desktop sleeping; pi-world's routes have no
    authentication on the tailnet) or `celld dev` on the desktop.
-2. Audio in git: Opus in a plain private repo, or git-lfs.
-3. Engine: parakeet-tdt-0.6b-v2 (current default) or whisper large-v3-turbo, measured on my own
-   takes.
-4. Whether a separate key also does ordinary dictation into any window while the model is loaded.
+2. Playback of takes was asked for ("a way to play back the recording back"), but Claude Code's
+   dictation keeps no audio. Drop playback, or record audio alongside?
+3. Should the dictating session be a dedicated one, so its agent's replies don't mix with project
+   work? Or should the hook stop dictated prompts from reaching the agent at all?
