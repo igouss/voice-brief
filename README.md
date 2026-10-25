@@ -139,8 +139,9 @@ marketplace; run `/vb-setup` once and restart.
 ## Desktop window (optional, Omarchy)
 
 [`desktop/`](desktop/README.md) is a Rust + GPUI window that shows every session's takes and
-placement outside the terminal; F1 slides it in and out through a Hyprland special workspace. It
-only reads: Place, Accept and Hand off stay in Claude Code. Build, install and the three Hyprland
+placement outside the terminal; F1 slides it in and out through a Hyprland special workspace.
+Hold Space in it to dictate through the shown session's Claude Code (tap mode); Place, Accept and
+Hand off stay in Claude Code. Build, install and the three Hyprland
 lines: [`desktop/README.md`](desktop/README.md).
 
 The thread events are defined once, in Rust (`desktop/thread/src/wire.rs`); the plugin's

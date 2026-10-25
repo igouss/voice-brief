@@ -117,7 +117,7 @@ events are now typed from one schema.
   deleted), and its placement (placing, failed, the proposal, or the accepted revision and whether
   it was handed off), each claim with the take its quote came from. It re-reads changed threads
   every second.
-- **Read-only.** *Assumption, flagged (cm-vph):* Place, Accept and Hand off stay in Claude Code.
+- **It drives recording, nothing else.** *Assumption, flagged (cm-vph):* Place, Accept and Hand off stay in Claude Code.
   Driving them from the window needs a command channel into the plugin (it polls files, so one is
   possible), and that protocol is not decided.
 - **One schema for the thread.** The events are defined once, in Rust:
@@ -132,6 +132,34 @@ events are now typed from one schema.
   serde, serde_json and ts-rs, so it builds and tests without GPUI (cm-hkg). Placement is a sum
   type (`Idle`, `Placing`, `Proposed`, `Failed`); accepting or rejecting outside `Proposed` changes
   nothing. A line that does not parse is counted, not fatal.
+- **Push-to-talk is a state machine held as data** (cm-prk): `vb_talk::step(Talk, Event) ->
+  (Talk, Option<Effect>)` in [`desktop/talk/`](desktop/talk/machine.md), framework-free so Kani can
+  check the function itself. Holding Space in the window sends Claude Code's tap-mode Space to the
+  terminal that owns the shown session (found by walking up from its `claude` pid to a Hyprland
+  window); releasing it, or the window losing focus, sends the stop. The window learns a stream
+  opened or closed from the proxy's `open/<stream>` marker, which now holds the client pid. The
+  diagram in `desktop/talk/machine.md` is generated from `step` and drawn with frankenmermaid by
+  `desktop/views` (SVG and terminal); its `cargo test` fails while the committed files differ.
+- **Transitions are drawn as nodes.** frankenmermaid anchors an edge label at the middle of the
+  edge's middle segment and never moves it (`fm_layout::edge_label_position`), so labels on this
+  cyclic graph overlapped. Nodes are sized and separated by the layout, so each transition is a
+  node of its own (a hexagon when it taps Space).
+- **`desktop/views` is its own Cargo workspace.** Force: GPUI's tree turns on `log`'s
+  `kv_serde`, which brings in `serde_fmt`, whose private `Error` converts both ways with
+  `fmt::Error`; frankenmermaid's `egg` 0.11 then fails to infer a closure's error type
+  (`dot.rs:229`), so any build unifying both trees breaks. Would reverse it: an `egg` release that
+  names the type (`Ok::<(), fmt::Error>(())`).
+- **Settling after a stop.** Force: the window sees the stream a poll late, so if the recorder stops
+  by itself (Claude Code does, on silence) just before you release, the stop tap starts a new
+  recording nobody holds. Kani found that interleaving. After a stop the machine waits in
+  `Settling` for 1 s and stops any stream of that session that opens meanwhile. Proved with Kani
+  (`desktop/talk/src/proofs.rs`): for every interleaving of 8 presses, releases, focus losses,
+  stream events, recorder self-stops and other sessions' streams, releasing Space leaves the
+  recorder off and the window idle. Assumption, flagged: a stream event reaches the window within
+  the 1 s settle. Removing `Settling` makes that proof fail.
+- **A focus blip is not a focus loss.** Hyprland's `send_key_state` to the terminal moves keyboard
+  focus away from the window and back within a millisecond; the window treats focus as lost only if
+  it is still lost 200 ms later. Seen live: without it, every recording stopped after 0.17 s.
 - **F1 is Hyprland's.** Wayland gives an app no global keys, so the window (app id `voice-brief`)
   is sent to the special workspace `voicebrief` by a window rule, F1 toggles that workspace, and
   autostart launches the app at login: the Omarchy scratchpad idiom.
