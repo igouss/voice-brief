@@ -144,8 +144,9 @@ design passes and each rule's removal is caught.
 
 ## Speech-to-text and the model's lifetime
 
-**Superseded on 2026-10-25** (see Decisions): ideas are dictated with Claude Code's `/voice`,
-not voxtype. What follows records the voxtype design until the rest of this document is redrawn.
+**Changed on 2026-10-25** (see Decisions): inside Claude Code, ideas are dictated with its
+`/voice`; outside Claude Code, the app still records and transcribes locally with voxtype. What
+follows is the voxtype design, which now covers only that second path.
 What the switch changes, as far as checked:
 
 - Capture is a prompt in a Claude Code session started with `DEBUG=1`. The `UserPromptSubmit`
@@ -293,6 +294,9 @@ Operator words, 2026-10-25:
 - "I think this workflow actually might work well. We don't need the dictation up from the vox we
   can install, not install, just use the dictation that the Claude Code provides. It seems to be
   pretty accurate and fast."
+- Dictated as corpus take t3: "The application itself should or still support recording and
+  transcribing locally through the vox when I'm not running it from the claude code instance."
+  Then, asked whether to record it: "yes, add it to design.md".
 
 ## Open questions
 
