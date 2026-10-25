@@ -1,0 +1,10 @@
+{"fields": {
+  "weakest_part": {"claims": [], "question": "Which specific place in the system as it stands now do you see as the weakest, and what have you observed there that points to it?"},
+  "force": {"claims": [], "question": "What two pressures does that part face that its current structure cannot satisfy at the same time, and what have you already seen happen because of that?"},
+  "smallest_move": {"claims": [], "question": "What is the least change that would resolve that tension while leaving everything else working?"},
+  "preserves": {"claims": [
+    {"id": "c1", "text": "The dependency on the debug log stays, since there is no other way to get this information; it applies only when the application is used from Claude Code.", "said": ["Regarding the debug log as a dependency, there is no other way to get a hold of this information, so I think we'll just have to live with that.", "and it's only when we're using it from claude Code."]},
+    {"id": "c2", "text": "The application must still support recording and transcribing locally through vox when it is not run from a Claude Code instance.", "said": ["The application itself should or still support recording and transcribing locally through the vox when I'm not running it from the claude code instance."]}
+  ]},
+  "would_reverse_it": {"claims": [], "question": "What observable result after the change would show you it was wrong and should be undone?"}
+}}
