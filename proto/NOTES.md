@@ -4,7 +4,8 @@ Throwaway code that answers questions. What is current:
 
 | Piece | Run | What it is |
 |---|---|---|
-| `vb-voice-proxy.service` | `systemctl --user status vb-voice-proxy` | mitmdump on 127.0.0.1:8897 with `vb_mitm.py`, a systemd user service (symlinked into `~/.config/systemd/user/`) |
+| `install.sh` | `proto/install.sh` | creates the mitmproxy CA, installs the service from `vb-voice-proxy.service.in`, writes `.claude/settings.local.json`, builds the contract tools |
+| `vb-voice-proxy.service.in` | `systemctl --user status vb-voice-proxy` | mitmdump on 127.0.0.1:8897 with `vb_mitm.py`, a systemd user service |
 | `../.claude/settings.json` | `claude` in this repo | the proxy variables, `VB_BRIEF=1`, and the `voice-notes@voice-brief` plugin from `../.claude-plugin/marketplace.json` |
 | `vb-claude.sh` | `proto/vb-claude.sh --brief` | the same for a session in another repository |
 | `voice-notes/` | loaded by either | the Claude Code mod: notes, placement, hand-off |
