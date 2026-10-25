@@ -1,0 +1,11 @@
+{
+  "env": {
+    "HTTPS_PROXY": "http://127.0.0.1:8897",
+    "NODE_EXTRA_CA_CERTS": "/home/elendal/.mitmproxy/mitmproxy-ca-cert.pem",
+    "VB_BRIEF": "1"
+  },
+  "extraKnownMarketplaces": {
+    "voice-brief": { "source": { "source": "directory", "path": "/home/elendal/Projects/mine/voice-brief" } }
+  },
+  "enabledPlugins": { "voice-notes@voice-brief": true }
+}

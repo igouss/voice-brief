@@ -35,9 +35,9 @@ move come from cm-dr0; preserves and would reverse it from cm-e2y.
 ## Claude Code mode
 
 ```
-notes pane: proto/vb-claude.sh --brief                      vb-voice-proxy.service (systemd user)
+notes pane: claude in this repo (.claude/settings.json)    vb-voice-proxy.service (systemd user)
 ┌──────────────────────────────────────────────┐ HTTPS_PROXY ┌───────────────────────────────────┐
-│ claude  (VB_BRIEF=1, --plugin-dir voice-notes)│ ──────────► │ mitmdump 127.0.0.1:8897           │
+│ claude  (VB_BRIEF=1, plugin voice-notes)     │ ──────────► │ mitmdump 127.0.0.1:8897           │
 │  /voice dictation ── voice_stream WebSocket ──┼────────────►│  decrypts api.anthropic.com only  │──► Anthropic
 │                                              │             │  vb_mitm.py: per voice stream,    │
 │  voice-notes mod                             │             │  WAV + transcript, filed under    │
@@ -51,12 +51,22 @@ notes pane: proto/vb-claude.sh --brief                      vb-voice-proxy.servi
 - **The proxy** runs as a systemd user service, `proto/vb-voice-proxy.service`, enabled at
   login and restarted on failure. Closing any pane leaves it running (it used to run inside
   whichever pane started it). It decrypts only `api.anthropic.com` and writes only voice streams.
-  The mitmproxy CA in `~/.mitmproxy/` is trusted only by sessions started through
-  `proto/vb-claude.sh`.
+  The mitmproxy CA in `~/.mitmproxy/` is trusted only by sessions that set
+  `NODE_EXTRA_CA_CERTS` to it.
+- **Starting it:** `claude` in this repository. `.claude/settings.json` sets `HTTPS_PROXY`,
+  `NODE_EXTRA_CA_CERTS` and `VB_BRIEF=1`, registers the repo as the `voice-brief` marketplace
+  (`.claude-plugin/marketplace.json`), and enables `voice-notes@voice-brief`. That plugin is read
+  from `proto/voice-notes` itself, so an edit reaches a session with `/reload-plugins`. In
+  another repository, `proto/vb-claude.sh --brief` does the same. *Checked:* a headless `claude`
+  started here with none of those variables in its environment went through the proxy, loaded
+  the mod, and the mod saw `VB_BRIEF=1`. If the service is down, every session in this repo
+  hangs on its first request.
 - **A voice stream** is tied to the `claude` process that opened it: the proxy finds the
-  process from the client socket, then its working directory's Git root. A stream counts as a
-  note only when that process has `VB_BRIEF=1`. *Checked:* live streams carried the right pid; a
-  headless `claude -p` with the mod recorded its own pid correctly.
+  process from the client socket, then its working directory's Git root. The mod decides what is
+  a note: streams of its own process, in a session where `VB_BRIEF=1`. A variable from settings
+  is not in the process's `/proc` environment, so the proxy cannot decide it. *Checked:* live
+  streams carried the right pid; a headless `claude -p` with the mod recorded its own pid
+  correctly.
 - **Capture needs no Enter.** A dictation becomes a note as soon as Anthropic finishes
   transcribing it. Enter sends it to the pane's agent as usual, and the note is marked sent.
   *Checked* live: one note sent, one left unsent.
@@ -78,7 +88,7 @@ notes pane: proto/vb-claude.sh --brief                      vb-voice-proxy.servi
 
 ```
 ~/.local/share/voice-brief/projects/<git root, / replaced by ->/
-  index.jsonl                 one row per voice stream: transcript, pid, notes pane or not, clean close
+  index.jsonl                 one row per voice stream: transcript, pid, project, clean close
   audio/<stream>.wav, .json   the exact frames sent (16 kHz mono linear16), and every server message
   open/<stream>               a stream in progress
   notes/<session start>/      one notes-pane session: thread.jsonl, each placement's files, prompt.md

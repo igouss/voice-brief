@@ -40,13 +40,6 @@ def slug(path):
     return path.replace("/", "-") if path else "_unknown"
 
 
-def notes_pane(pid):
-    try:
-        return b"VB_BRIEF=1" in open(f"/proc/{pid}/environ", "rb").read().split(b"\0")
-    except (OSError, TypeError):
-        return False
-
-
 def final_transcript(server_text):
     utterances, current = [], ""
     for m in server_text:
@@ -75,7 +68,7 @@ def websocket_start(flow: http.HTTPFlow):
     name = time.strftime("%Y%m%dT%H%M%S") + f"-{flow.id[:8]}"
     (base / "open" / name).touch()
     streams[flow.id] = {"name": name, "start": time.time(), "audio": bytearray(), "chunks": 0, "pid": pid,
-                        "project": project, "notes": notes_pane(pid), "base": base,
+                        "project": project, "base": base,
                         "client_text": [], "server_text": []}
 
 
@@ -106,7 +99,7 @@ def websocket_end(flow: http.HTTPFlow):
         w.setframerate(RATE)
         w.writeframes(bytes(s["audio"]))
     meta = {"name": s["name"], "start": s["start"], "end": time.time(), "wav": str(wav), "bytes": len(s["audio"]),
-            "chunks": s["chunks"], "pid": s["pid"], "project": s["project"], "notes": s["notes"],
+            "chunks": s["chunks"], "pid": s["pid"], "project": s["project"],
             "final": final_transcript(s["server_text"]),
             "closed_by_client": any('"CloseStream"' in m["text"] for m in s["client_text"]),
             "endpoint": any('"TranscriptEndpoint"' in m["text"] for m in s["server_text"]),
@@ -116,5 +109,5 @@ def websocket_end(flow: http.HTTPFlow):
     (audio / f"{s['name']}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1))
     with (s["base"] / "index.jsonl").open("a") as f:
         f.write(json.dumps({k: meta[k] for k in ("name", "start", "end", "wav", "bytes", "chunks", "pid", "project",
-                                                   "notes", "final", "closed_by_client", "endpoint")},
+                                                   "final", "closed_by_client", "endpoint")},
                            ensure_ascii=False) + "\n")

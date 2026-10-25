@@ -5,8 +5,9 @@ Throwaway code that answers questions. What is current:
 | Piece | Run | What it is |
 |---|---|---|
 | `vb-voice-proxy.service` | `systemctl --user status vb-voice-proxy` | mitmdump on 127.0.0.1:8897 with `vb_mitm.py`, a systemd user service (symlinked into `~/.config/systemd/user/`) |
-| `vb-claude.sh` | `proto/vb-claude.sh --brief` | starts the service if needed, then `claude` through it; `--brief` makes the notes pane |
-| `voice-notes/` | loaded by `--brief` | the Claude Code mod: notes, placement, hand-off |
+| `../.claude/settings.json` | `claude` in this repo | the proxy variables, `VB_BRIEF=1`, and the `voice-notes@voice-brief` plugin from `../.claude-plugin/marketplace.json` |
+| `vb-claude.sh` | `proto/vb-claude.sh --brief` | the same for a session in another repository |
+| `voice-notes/` | loaded by either | the Claude Code mod: notes, placement, hand-off |
 
 Captures and notes live per Git project under `~/.local/share/voice-brief/projects/` (`design.md`,
 "Where the data lives").
@@ -57,8 +58,8 @@ The proxy decrypts only `api.anthropic.com` and saves only the `voice_stream` We
 - Each stream gets:
   - a WAV of the client's binary frames (16 kHz mono linear16);
   - a JSON file with every server message;
-  - a row in its project's `index.jsonl`: final transcript, client pid, project, notes pane or
-    not, clean close on both sides.
+  - a row in its project's `index.jsonl`: final transcript, client pid, project, clean close on
+    both sides.
 - The final transcript is the last `TranscriptText` of each utterance, joined.
 - The client pid comes from the connection's socket inode in `/proc`. The project is the Git root
   of that process's working directory, or the directory itself outside a repo.
@@ -121,4 +122,5 @@ and it acts only where `VB_BRIEF=1`.
     - from this repo, it recorded its own pid (the launched process) and the project, and
       registered the seven commands;
     - from `/tmp`, it filed under `-tmp`.
-- Not yet run in the operator's notes pane.
+- 2026-10-25: loaded by plain `claude` in this repo through `.claude/settings.json`, checked
+  headless. Not yet run in the operator's notes pane.
