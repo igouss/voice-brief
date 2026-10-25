@@ -55,62 +55,69 @@ clipboard.
 ## How it works
 
 ```
-claude (at the repo root)                    vb-voice-proxy.service (systemd user unit)
-┌───────────────────────────────────┐        ┌────────────────────────────────────────┐
-│ /voice dictation ─ voice_stream ──┼───────►│ mitmdump 127.0.0.1:8897                │──► api.anthropic.com
-│                                   │ HTTPS_ │ decrypts api.anthropic.com only        │
-│ voice-notes mod (Claude Code mod) │ PROXY  │ vb_mitm.py: each voice stream → WAV,   │
-│  reads its project's index.jsonl ◄┼────────┤ final transcript, client pid, filed    │
+claude (at a project's root)                 vb-voice-proxy.service (systemd user unit)
+┌────────────────────────────────────┐        ┌────────────────────────────────────────┐
+│ /voice dictation ─ voice_stream ───┼───────►│ mitmdump 127.0.0.1:8897                │──► api.anthropic.com
+│                                    │ HTTPS_ │ decrypts api.anthropic.com only        │
+│ voice-notes plugin                 │ PROXY  │ vb_mitm.py: each voice stream → WAV,   │
+│  reads its project's index.jsonl  ◄┼────────┤ final transcript, client pid, filed    │
 │  pane: notes, Place/Accept/Hand off│        │ under the client's Git root            │
-│  Place → isolated claude -p        │        └────────────────────────────────────────┘
-│        → Rust validator            │
-└───────────────────────────────────┘
+│  Place → Claude Code's model API   │        └────────────────────────────────────────┘
+│        → validator in the plugin   │
+└────────────────────────────────────┘
 ```
 
 1. **Capture.** Claude Code transcribes `/voice` dictation in Anthropic's cloud and keeps no
    audio. A local mitmproxy, running as a systemd user service, saves each voice stream's exact
    audio and Anthropic's transcript. It ties each stream to the `claude` process that opened it
    and that process's Git project.
-2. **Notes.** The `voice-notes` mod turns every dictation from its own session into a note the
+2. **Notes.** The `voice-notes` plugin turns every dictation from its own session into a note the
    moment it is transcribed. Enter is optional: it only decides whether the agent in that session
    also gets the text.
-3. **Placement.** Place sends all live notes to an isolated `claude -p` that sees only an
-   explicit prompt (no `CLAUDE.md`, memory, skills or tools). The field definitions are read from
-   `idea.md`. A Rust validator rejects any reply whose quoted words are not in the transcript, or
-   whose field has both claims and a question or neither.
+3. **Placement.** Place sends all live notes through Claude Code's own model API with only the
+   plugin's system prompt (no `CLAUDE.md`, memory, skills or tools); the field definitions come
+   from `idea.md`. The plugin's validator rejects any reply whose quoted words are not in the
+   notes, or whose field has both claims and a question or neither.
 4. **Hand-off.** Accept, then Hand off: the five fields as Markdown, on the clipboard and in
    `prompt.md`.
 
-The full design, with what was checked and what is assumed: [`design.md`](design.md).
+The plugin uses Claude Code's built-in facilities only (files, model calls, UI); the one command
+it runs is `systemctl --user`, in `/vb-setup`. The full design, with what was checked and what is
+assumed: [`design.md`](design.md).
 
-## Setup
+## Install
 
-Requirements: Linux with systemd user services, Claude Code with `/voice`, [`uv`](https://docs.astral.sh/uv/),
-`jq`, and a Rust toolchain.
+Requirements: Linux with systemd user services, Claude Code with `/voice` (a claude.ai login),
+and mitmproxy:
 
 ```bash
-git clone https://github.com/igouss/voice-brief.git
-cd voice-brief
 uv tool install mitmproxy
-proto/install.sh
 ```
 
-`proto/install.sh`:
+In Claude Code:
 
-- creates the mitmproxy CA in `~/.mitmproxy/` if it is missing;
-- installs and starts `vb-voice-proxy.service` (from `proto/vb-voice-proxy.service.in`, with
-  this repo's path);
-- writes `.claude/settings.local.json` (gitignored) with the CA path and this repo as the
-  `voice-brief` plugin marketplace;
-- builds the contract tools in `spike/contract`.
+```
+/plugin install voice-notes --marketplace igouss/voice-brief
+```
+
+Then, at the root of each project you want to dictate in:
+
+```
+/vb-setup
+```
+
+and restart Claude Code there. `/vb-setup`:
+
+- installs and starts `vb-voice-proxy.service`, with the proxy addon copied to
+  `~/.local/share/voice-brief/vb_mitm.py`; mitmproxy creates its CA in `~/.mitmproxy/` on
+  first start;
+- writes `HTTPS_PROXY` and `NODE_EXTRA_CA_CERTS` into the project's `.claude/settings.local.json`
+  (keep that file out of git; it holds a path under your home).
+
+In this repository itself, `.claude/settings.json` already enables the plugin from the local
+marketplace; run `/vb-setup` once and restart.
 
 ## Use
-
-```bash
-claude          # at the repo root; accept the project's marketplace and plugin when asked
-```
-
-Then:
 
 1. `/voice` and dictate. Each dictation shows up in the **Voice notes** pane, with a "captured"
    line above the prompt.
@@ -126,9 +133,7 @@ Then:
 | `/vb-handoff` | copy the accepted prompt to the clipboard and write `prompt.md` |
 | `/vb-delete t3` | drop a note from placement |
 | `/vb-fix t3 <text>` | correct a note's transcript |
-
-In another repository, `proto/vb-claude.sh --brief` starts a session with the proxy and the mod
-loaded.
+| `/vb-setup` | install the proxy and this project's settings |
 
 ## Where the data lives
 
@@ -158,22 +163,21 @@ Per Git project, outside the repository:
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Every session in the repo hangs on its first request | the proxy service is down | `systemctl --user status vb-voice-proxy`, then `systemctl --user restart vb-voice-proxy` |
-| `SSL certificate verification failed` | the CA path is wrong or unexpanded | rerun `proto/install.sh`; settings `env` does not expand `$HOME` or `~` |
-| No Voice notes pane, no `/vb` commands | `claude` started in a subdirectory, or the plugin was not trusted | start `claude` at the repo root and accept the marketplace; `/reload-plugins` after editing the mod |
-| Dictations never become notes | no voice stream reached the proxy, or the stream format changed | check `~/.local/share/voice-brief/projects/*/index.jsonl` for a new row with your session's pid |
-| Place says "model call failed" | the contract tools are not built, or `claude -p` failed | `cargo build --bins --manifest-path spike/contract/Cargo.toml`; look in `notes/<session>/place-*/` |
+| Every proxied session hangs on its first request | the proxy service is down | `systemctl --user status vb-voice-proxy`, then `systemctl --user restart vb-voice-proxy` |
+| `SSL certificate verification failed` | the CA path is wrong | rerun `/vb-setup`; settings `env` does not expand `$HOME` or `~` |
+| The pane says "Not capturing" | this session's `HTTPS_PROXY` is not the voice proxy | `/vb-setup` at the project root, then restart Claude Code there |
+| No Voice notes pane, no `/vb` commands | the plugin is not enabled here, or `claude` started in a subdirectory | `/plugin` to enable it; start `claude` at the project root |
+| Dictations never become notes | no voice stream reached the proxy, or the stream format changed | look in `~/.local/share/voice-brief/projects/*/index.jsonl` for a row with your session's pid |
+| Place says the reply broke the contract | the model quoted words not in the notes, or returned the wrong shape | the reply is in `notes/<session>/place-*/reply.txt`; place again |
 
 ## Limitations
 
-- One machine, one person. No packaging, no multi-user story.
-- Linux only: the proxy finds the client process through `/proc`.
+- One machine, one person. Linux only: the proxy finds the client process through `/proc`, and
+  setup uses systemd user services.
 - The local mode (transcribing with voxtype on this machine) is designed but not built.
 - The checker that scores placement against a confirmed annotation, and the full spike run, are
   not done yet (`spike/`); the claim that placement invents nothing is not yet measured.
 - Correcting or deleting a note does not yet re-check accepted claims that cite it.
-- Every session started at this repo's root is a notes session (`VB_BRIEF=1` in
-  `.claude/settings.json`).
 
 ## Repository
 
@@ -181,8 +185,9 @@ Per Git project, outside the repository:
 |---|---|
 | [`idea.md`](idea.md) | the problem and the five-field format, the single source of the field definitions |
 | [`design.md`](design.md) | the design, decisions in the operator's words, open questions |
-| [`proto/`](proto/NOTES.md) | the proxy addon and service, the `voice-notes` mod, the launcher, and notes from each prototype |
-| [`spike/`](spike/) | the drafting spike: isolation of model calls, the corpus, the Rust contract and validator, its workers-rs build |
+| [`plugins/voice-notes/`](plugins/voice-notes/README.md) | the Claude Code plugin: pane, placement, validator, `/vb-setup`, the proxy addon and its service template |
+| [`proto/NOTES.md`](proto/NOTES.md) | what each prototype asked and showed |
+| [`spike/`](spike/) | the drafting spike: isolation of model calls, the corpus, the Rust contract and validator (checked against the plugin's cases), its workers-rs build |
 | [`spec/tla/`](spec/tla/README.md) | a TLA+ model of the job protocol for the planned celld version |
 | `mockups/` | HTML mock-ups of the earlier desktop design |
 

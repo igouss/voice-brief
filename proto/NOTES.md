@@ -2,19 +2,16 @@
 
 Throwaway code that answers questions. What is current:
 
-| Piece | Run | What it is |
-|---|---|---|
-| `install.sh` | `proto/install.sh` | creates the mitmproxy CA, installs the service from `vb-voice-proxy.service.in`, writes `.claude/settings.local.json`, builds the contract tools |
-| `vb-voice-proxy.service.in` | `systemctl --user status vb-voice-proxy` | mitmdump on 127.0.0.1:8897 with `vb_mitm.py`, a systemd user service |
-| `../.claude/settings.json` | `claude` in this repo | the proxy variables, `VB_BRIEF=1`, and the `voice-notes@voice-brief` plugin from `../.claude-plugin/marketplace.json` |
-| `vb-claude.sh` | `proto/vb-claude.sh --brief` | the same for a session in another repository |
-| `voice-notes/` | loaded by either | the Claude Code mod: notes, placement, hand-off |
+The product is now the Claude Code plugin in [`../plugins/voice-notes/`](../plugins/voice-notes/README.md):
+its pane, placement through `$.model.complete`, the validator in `hooks/contract.ts`, `/vb-setup`,
+and in `setup/` the proxy addon and its systemd service template.
 
 Captures and notes live per Git project under `~/.local/share/voice-brief/projects/` (`design.md`,
 "Where the data lives").
 
 Retired, in git history: `vb_proto.py` (prototype 1, local voxtype), `vb_hook.py` (prompt hook),
-`vb_brief.py` (prototype 2, terminal app). The sections below keep what each showed.
+`vb_brief.py` (prototype 2, terminal app), `install.sh` and `vb-claude.sh` (replaced by
+`/vb-setup`). The sections below keep what each showed.
 
 ## Prototype 1: local capture (retired)
 
@@ -92,38 +89,38 @@ Operator, 2026-10-25: "I don't want to send the dictated text to the model when 
 and if I do want to send the dictated text, I will just press enter … For now, a preferred mode
 where I just open Claude and use its voice … for this application to populate voice notes."
 
-## Prototype 3: everything inside Claude Code (current)
+## Prototype 3: everything inside Claude Code (now the plugin)
 
 Operator, 2026-10-25: "Maybe we could just use Claude mods and this void capture and processing,
 and we just do it from the inside Claude code. Maybe we don't need to write an application right
 now."
 
-`proto/voice-notes/` is a Claude Code mod. `vb-claude.sh --brief` loads it with `--plugin-dir`,
-and it acts only where `VB_BRIEF=1`.
+It began as a mod in `proto/voice-notes/` that spawned commands: `sh` for its pid, `git` for the
+project, `spike/isolation/run.sh` and the Rust binaries for placement. Packaged as a plugin on
+2026-10-25 ("the proper rewrite. Don't spawn using command line"), it moved to
+`plugins/voice-notes/`. It now uses Claude Code's own facilities:
 
-- On start it finds its own `claude` process and its project's Git root. Every second it reads
-  that project's `index.jsonl` for streams of its process since the session began.
-- Each new stream becomes a note: a toast, a status line, and a "captured" band above the prompt.
-- **The `Voice notes` pane:**
-  - lists the notes; ↗ marks the ones sent to Claude, and × deletes one;
-  - Minimize closes it and keeps a one-line summary (notes, proposal state, Open and Maximize)
-    above the prompt; Maximize asks the dock for its widest (45% of the terminal);
-  - has Place, Accept, Reject and Hand off buttons;
-  - shows the proposal or the accepted revision field by field: each claim with `said tN` or
-    `added: reason`, and each empty field with its question.
-- Commands: `/vb`, `/vb-min`, `/vb-max`, `/vb-place`, `/vb-accept`, `/vb-reject`, `/vb-handoff`, `/vb-delete tN`,
-  `/vb-fix tN <text>`.
-- **Placement** runs `spike/isolation/run.sh isolated` and the Rust validator, found beside the
-  mod, so a notes pane works in any repository.
-- **Hand-off** copies the prompt to the clipboard (`$.ui.copy`) and writes `prompt.md`.
-- Every event goes to `notes/<session start>/thread.jsonl` in the project's data folder.
-- Checked 2026-10-25:
-  - `claude plugin validate` passes, and `tsc` against this build's API is clean;
-  - `claude plugin test`: a stream from this process becomes `t1`, and one from another process
-    stays out. The first test was seen red with the pid changed.
-  - Headless `claude -p` with the mod:
-    - from this repo, it recorded its own pid (the launched process) and the project, and
-      registered the seven commands;
-    - from `/tmp`, it filed under `-tmp`.
-- 2026-10-25: loaded by plain `claude` in this repo through `.claude/settings.json`, checked
-  headless. Not yet run in the operator's notes pane.
+| Need | Was | Now |
+|---|---|---|
+| its own pid | `sh` walking `/proc` | `$.fs.read('/proc/self/stat')` (equal to the launched pid, *checked*) |
+| the project | `git rev-parse` | walking up for `.git` with `$.fs.exists` |
+| the model call | `run.sh isolated` (`claude -p`) | `$.model.complete` with only the plugin's system prompt |
+| validation | the Rust `validate` binary | `hooks/contract.ts`, held to the Rust crate by shared cases |
+| setup | `proto/install.sh` | `/vb-setup` (spawns only `systemctl --user`) |
+| opt-in | `VB_BRIEF=1` | enabling the plugin; "not capturing" when `HTTPS_PROXY` is not the proxy |
+
+Checked 2026-10-25:
+
+- `claude plugin validate` passes, and `tsc` against this build's API is clean.
+- `claude plugin test`, 24 tests:
+  - the 19 shared contract cases;
+  - a stream from this process becomes `t1`, and one from another stays out;
+  - minimize leaves the summary line;
+  - a simulated reply quoting the notes becomes a proposal, and one quoting words never said is
+    refused.
+- `cargo test --test conform`: the Rust validator agrees with the same 19 cases. Changing one
+  expected result failed both suites.
+- Headless `claude -p "/vb-setup"` here installed the unit (addon at
+  `~/.local/share/voice-brief/vb_mitm.py`) and the local settings, and the service came up.
+- Seen by the operator in a live session: the pane, capture, and minimize and maximize.
+- Placement through `$.model.complete` has not yet run against the real model.
