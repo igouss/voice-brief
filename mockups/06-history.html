@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>voice-brief · 6 History</title>
+<link rel="stylesheet" href="desktop.css">
+</head>
+<body data-page="history" data-time="Sunday 06:45" data-widget='<span class="vb warm">󰍬 0:40</span>'>
+<div class="desktop">
+  <div class="float">
+    <div class="status">
+      <span class="title">voice-brief</span>
+      <span>history · <span class="acc">idea 2 · Serial console first</span></span>
+      <span class="dim">git log ~/briefs/boot-path-hand-off/ideas/02-serial-console.md</span>
+      <span class="sp"></span>
+    </div>
+
+    <div class="row grow">
+      <div class="pane focus" style="width:420px">
+        <span class="t">Revisions <span class="r">↵ open · d diff · c restore as new</span></span>
+        <ul class="tl">
+          <li class="v"><span class="acc">r6</span> revise accepted <span class="dim">06:23 · a41c2e0</span></li>
+          <li class="v sel"><span class="acc">r5</span> append + save <span class="dim">06:19 · 9be0712</span></li>
+          <li class="ai"><span class="mag">review 0004</span> 1 accepted, 1 rejected <span class="dim">06:14</span></li>
+          <li class="v"><span class="acc">r4</span> AI proposal accepted <span class="dim">06:14 · 51d9a3f</span></li>
+          <li class="v"><span class="acc">r3</span> keyboard edit <span class="dim">06:12 · c0e7b11</span></li>
+          <li class="v"><span class="acc">r2</span> revise accepted <span class="dim">06:11 · 77f20aa</span></li>
+          <li class="v"><span class="acc">r1</span> new from take <span class="dim">06:04 · 3a1e9c4</span></li>
+          <li class="take"><span class="deleted">take 0010 deleted</span> <span class="dim">06:05 · still in git</span></li>
+        </ul>
+      </div>
+
+      <div class="col grow">
+        <div class="pane" style="flex:0 0 auto">
+          <span class="t">r5 · commit 9be0712</span>
+<pre style="font:inherit" class="soft">idea-2: append from take 0014
+
+Revision: idea-2/r5
+Takes: 0014</pre>
+        </div>
+        <div class="pane" style="flex:0 0 auto">
+          <span class="t">Diff r4 → r5</span>
+          <p>The console is the only output: no framebuffer in this brief.<br><span class="ins">A panic must still reach the serial port, even before the heap.</span></p>
+        </div>
+        <div class="pane grow">
+          <span class="t">Transcripts used, r1 → r5 <span class="r">↵ play</span></span>
+          <p class="quote"><span class="dim">0011 · 06:04 · new</span> Bring up the serial first so everything can print. Polling is fine, no interrupts yet.</p>
+          <p class="quote"><span class="dim">0012 · 06:11 · revise</span> Make it clear the console is the only output, no framebuffer.</p>
+          <p class="quote"><span class="dim">0014 · 06:18 · append</span> A panic must still reach the serial port, even before the heap.</p>
+          <p class="quote deleted"><span>0010 · 06:05 · deleted</span> (git show 3a1e9c4:takes/0010.toml)</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="keys">
+      <span><b>j/k</b> move</span><span><b>d</b> diff</span><span><b>↵</b> play take</span><span><b>c</b> restore as new revision</span><span><b>/</b> search transcripts</span><span><b>Esc</b> back</span>
+    </div>
+  </div>
+
+  <div class="caption"><b>6 · History.</b> Every revision is a commit, numbered per idea, and its trailers name the transcripts it used. A deleted take is gone from the working tree and from AI context, but its commit still has it.</div>
+</div>
+<script src="chrome.js"></script>
+</body>
+</html>

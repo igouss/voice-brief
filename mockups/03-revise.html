@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>voice-brief · 3 Revise</title>
+<link rel="stylesheet" href="desktop.css">
+</head>
+<body data-page="revise" data-time="Sunday 06:23" data-widget='<span class="vb warm">󰍬 ✓ 1 ready</span>'>
+<div class="desktop">
+  <div class="float">
+    <div class="status">
+      <span class="title">voice-brief</span>
+      <span>revise · <span class="acc">idea 2 · Serial console first</span> · r5 → proposed r6</span>
+      <span class="dim">from take 0015 (0:14) · claude via celld · 9.8 s</span>
+      <span class="sp"></span><span class="chip green">● loaded 9:51</span>
+    </div>
+
+    <div class="row grow">
+      <div class="col" style="width:420px">
+        <div class="pane" style="flex:0 0 auto">
+          <span class="t">Take 0015 · what you said</span>
+          <div class="player"><span class="acc">▶</span><div class="bar"><i style="width:0%"></i></div><span class="dim">0:00 / 0:14</span></div>
+          <p class="quote">Actually drop the polling bit, I don't care how it prints. Just say the panic handler has to print to serial, and that's how we know it booted.</p>
+        </div>
+        <div class="pane grow">
+          <span class="t">Current · r5</span>
+<div class="editor soft">Bring up the 16550 UART before anything else, so every later stage
+can print. Polling only; no interrupts until the IDT exists.
+
+The console is the only output: no framebuffer in this brief.
+A panic must still reach the serial port, even before the heap.
+
+Out of scope: keyboard input, VGA text mode.</div>
+        </div>
+      </div>
+
+      <div class="pane focus grow">
+        <span class="t">Proposed r6 <span class="r">diff against r5</span></span>
+<div class="editor">Bring up the 16550 UART before anything else, so every later stage
+can print.<span class="del"> Polling only; no interrupts until the IDT exists.</span>
+
+The console is the only output: no framebuffer in this brief.
+A panic must still reach the serial port, even before the heap.
+<span class="ins">Booted means: the kernel prints a banner to serial and the panic handler</span>
+<span class="ins">prints to serial too.</span><span class="added"> QEMU's -serial stdio is enough to check it.</span>
+
+Out of scope: keyboard input, VGA text mode.</div>
+        <div style="margin-top:14px">
+          <p><span class="tag said">said</span> removed "Polling only…" ← "drop the polling bit"</p>
+          <p><span class="tag said">said</span> "Booted means…" ← "that's how we know it booted"</p>
+          <p><span class="tag added">added ⁺</span> "QEMU's -serial stdio…": nothing in your takes says this</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="keys">
+      <span><b>y</b> accept → commit r6</span><span><b>Y</b> accept without the ⁺ parts</span><span><b>e</b> edit, then accept</span>
+      <span><b>x</b> reject (kept in reviews/)</span><span><b>␣</b> say more (new take, revise again)</span><span><b>Esc</b> back</span>
+    </div>
+  </div>
+
+  <div class="caption"><b>3 · Revise.</b> A new take plus the current revision produce a proposed revision, shown as a diff. Each change names the words it came from, and anything new is marked ⁺. Accepting commits r6 with the trailer <code>Takes: 0015</code>.</div>
+</div>
+<script src="chrome.js"></script>
+</body>
+</html>
