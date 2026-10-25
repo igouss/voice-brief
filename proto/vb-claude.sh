@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
+port=8897
+ca="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
 extra=()
 if [ "${1:-}" = "--brief" ]; then
   export VB_BRIEF=1
   extra=(--plugin-dir "$here/voice-notes")
   shift
 fi
-port=8899
-ca="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
+systemctl --user start vb-voice-proxy.service
+for _ in $(seq 50); do ss -ltn "sport = :$port" | grep -q LISTEN && break; sleep 0.1; done
 if ! ss -ltn "sport = :$port" | grep -q LISTEN; then
-  mitmdump --listen-host 127.0.0.1 -p "$port" --allow-hosts '^api\.anthropic\.com(:443)?$' \
-    --set flow_detail=0 -s "$here/vb_mitm.py" >>"$HOME/tmp/vb-proto-mitm.out" 2>&1 &
-  for _ in $(seq 50); do ss -ltn "sport = :$port" | grep -q LISTEN && break; sleep 0.1; done
+  echo "vb-voice-proxy is not listening on 127.0.0.1:$port; see: journalctl --user -u vb-voice-proxy" >&2
+  exit 1
 fi
 HTTPS_PROXY="http://127.0.0.1:$port" NODE_EXTRA_CA_CERTS="$ca" exec claude "${extra[@]}" "$@"
