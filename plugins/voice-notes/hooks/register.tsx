@@ -20,6 +20,7 @@ const COLUMNS: Record<PaneSize, number> = { min: 0, normal: 56, max: 400 }
 const PROXY_URL = 'http://127.0.0.1:8897'
 const MODEL = 'claude-opus-5-5'
 const EFFORT = 'medium'
+const DICTATION_WAIT_STEPS = 12
 
 type IndexRow = { name: string; start: number; pid?: number | null; final: string; wav: string; closed_by_client: boolean; endpoint: boolean }
 
@@ -27,6 +28,7 @@ const norm = (s: string): string => s.replace(/[‘’]/g, "'").split(/\s+/).fil
 const tid = (i: number): string => `t${i + 1}`
 
 let isCapturing = false
+let isTapMode = false
 let pid = 0
 let home = ''
 let dataHome = ''
@@ -118,6 +120,35 @@ async function place($: EngineInterface): Promise<void> {
   } finally {
     await update($, busy, () => null)
   }
+}
+
+async function voiceMode($: EngineInterface): Promise<string | undefined> {
+  for (const path of [`${project}/.claude/settings.local.json`, `${project}/.claude/settings.json`, `${home}/.claude/settings.json`]) {
+    if (!(await $.fs.exists(path))) continue
+    try {
+      const mode: unknown = JSON.parse(await $.fs.read(path))?.voice?.mode
+      if (typeof mode === 'string') return mode
+    } catch {
+      continue
+    }
+  }
+  return undefined
+}
+
+async function dictated($: EngineInterface, text: string): Promise<string | null> {
+  for (let i = 0; i < DICTATION_WAIT_STEPS; i++) {
+    await poll($)
+    const hit = live(await read($, notes)).find(([, n]) => !n.sent && norm(n.text) === text)
+    if (hit) return hit[0]
+    await $.clock.sleep(250)
+  }
+  return null
+}
+
+async function clearDropped($: EngineInterface, text: string): Promise<void> {
+  await $.clock.sleep(150)
+  const box = await $.prompt.read()
+  if (norm(box.text) === text) await $.prompt.fill({ text: '' })
 }
 
 async function gitRoot($: EngineInterface, cwd: string): Promise<string> {
@@ -230,6 +261,7 @@ export const register: Register = on => {
     dataHome = (await $.env.get('XDG_DATA_HOME')) ?? `${home}/.local/share`
     isCapturing = (await $.env.get('HTTPS_PROXY')) === PROXY_URL
     project = await gitRoot($, e.cwd)
+    isTapMode = (await voiceMode($)) === 'tap'
     projectData = `${dataHome}/voice-brief/projects/${project.replaceAll('/', '-')}`
     pid = Number((await $.fs.read('/proc/self/stat')).split(' ')[0])
     startedSecs = (await $.clock.now()) / 1000 - 5
@@ -265,6 +297,14 @@ export const register: Register = on => {
 
   on('prompt.submit', async ($, e, next) => {
     const text = norm(e.text)
+    if (isTapMode && isCapturing && !e.command && !e.isMeta && text) {
+      const take = await dictated($, text)
+      if (take) {
+        await update($, latest, () => null)
+        void clearDropped($, text).catch(() => undefined)
+        return { drop: `Kept as voice note ${take}; not sent to the agent (tap mode).` }
+      }
+    }
     const list = await read($, notes)
     const sent = list.map((n, i) => (!n.sent && norm(n.text) && text.includes(norm(n.text)) ? i : -1)).filter(i => i >= 0)
     if (sent.length) {

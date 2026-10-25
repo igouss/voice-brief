@@ -10,16 +10,18 @@ const PANE = {
 const row = (pid: number, final: string): string =>
   JSON.stringify({ name: `s-${pid}`, start: 1001, pid, final, wav: '/w.wav', closed_by_client: true, endpoint: true })
 
-async function start($: any, on: any, index: string): Promise<{ advance: (ms: number) => Promise<void> }> {
+async function start($: any, on: any, index: string, localSettings = '{}'): Promise<{ advance: (ms: number) => Promise<void> }> {
   mock.env(on, { HOME: '/h', HTTPS_PROXY: 'http://127.0.0.1:8897' })
   const clock = mock.clock(on, { now: 1_000_000 })
   on('fs.exists', (_: unknown, e: { path: string }) => ({ value: !e.path.endsWith('/.git') || e.path === '/repo/.git' }))
-  on('fs.read', (_: unknown, e: { path: string }) => ({ value: e.path === '/proc/self/stat' ? '4242 (claude) S 1 4242' : index }))
+  const files: Record<string, string> = { '/proc/self/stat': '4242 (claude) S 1 4242', '/repo/.claude/settings.local.json': localSettings }
+  on('fs.read', (_: unknown, e: { path: string }) => ({ value: files[e.path] ?? index }))
   on('fs.write', () => ({ value: undefined }))
   on('command.register', () => ({ value: {} }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.close', () => ({ value: undefined }))
   on('session.start', (_: unknown, e: { cwd: string }) => ({ cwd: e.cwd }))
+  on('prompt.submit', (_: unknown, e: { text: string }) => ({ text: e.text }))
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   return clock
 }
@@ -78,4 +80,56 @@ test('a reply quoting words never said is refused', async ($, on) => {
   const pane = await placeWith($, on, reply('the sync layer'))
   expect((await pane.find({ type: 'Text', text: /broke the contract/ }))?.text).toContain('span_not_in_transcript')
   await pane.unmount()
+})
+
+const TAP = JSON.stringify({ voice: { mode: 'tap' } })
+
+test('in tap mode a dictation that auto-submits is kept as a note and not sent', async ($, on) => {
+  const clock = await start($, on, row(4242, 'the weakest part is the sync module') + '\n', TAP)
+  await clock.advance(1100)
+  const result = await $.prompt.submit({ text: 'The weakest part is the sync module' })
+  expect(result).toEqual({ drop: 'Kept as voice note t1; not sent to the agent (tap mode).' })
+})
+
+test('in tap mode a typed prompt still reaches the agent', async ($, on) => {
+  const clock = await start($, on, row(4242, 'the weakest part is the sync module') + '\n', TAP)
+  await clock.advance(1100)
+  const pending = $.prompt.submit({ text: 'run the tests' })
+  await clock.advance(5000)
+  expect((await pending).drop).toBeUndefined()
+})
+
+test('in hold mode a dictation sent with Enter reaches the agent', async ($, on) => {
+  const clock = await start($, on, row(4242, 'the weakest part is the sync module') + '\n')
+  await clock.advance(1100)
+  const result = await $.prompt.submit({ text: 'the weakest part is the sync module' })
+  expect(result.drop).toBeUndefined()
+})
+
+test('in tap mode the dropped dictation is cleared from the prompt box', async ($, on) => {
+  const filled: string[] = []
+  on('prompt.read', () => ({ value: { text: 'The weakest part is the sync module', cursor: 35 } }))
+  on('prompt.fill', (_: unknown, e: { text: string }) => {
+    filled.push(e.text)
+    return { isFilled: true }
+  })
+  const clock = await start($, on, row(4242, 'the weakest part is the sync module') + '\n', TAP)
+  await clock.advance(1100)
+  await $.prompt.submit({ text: 'The weakest part is the sync module' })
+  await clock.advance(500)
+  expect(filled).toEqual([''])
+})
+
+test('in tap mode a box edited since the drop is left alone', async ($, on) => {
+  const filled: string[] = []
+  on('prompt.read', () => ({ value: { text: 'now I am typing', cursor: 15 } }))
+  on('prompt.fill', (_: unknown, e: { text: string }) => {
+    filled.push(e.text)
+    return { isFilled: true }
+  })
+  const clock = await start($, on, row(4242, 'the weakest part is the sync module') + '\n', TAP)
+  await clock.advance(1100)
+  await $.prompt.submit({ text: 'The weakest part is the sync module' })
+  await clock.advance(500)
+  expect(filled).toEqual([])
 })
